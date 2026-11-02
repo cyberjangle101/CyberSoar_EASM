@@ -79,7 +79,9 @@ key, and publish a release. Agents still on the old key need that release instal
    Then a "Container image" job builds `ghcr.io/cyberjangle101/easm-agent:X.Y.Z` (amd64 and arm64)
    from those verified binaries, pushes it and attests its provenance. The first push creates the
    package as private: make it public once under the repository's Packages so clusters can pull it
-   without credentials.
+   without credentials. After the production release, pin the new tag and its digest (from that
+   job's log) in `deploy/kubernetes/kustomization.yaml` through a normal PR; the manifests must never
+   point at a version whose image was not published.
 
    Anyone can check a download came from this workflow:
    `gh attestation verify easm-agent-windows-amd64.exe --repo cyberjangle101/cybersour-attack-surface-scanner`.
