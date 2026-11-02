@@ -17,6 +17,7 @@ ARG REVISION=unknown
 LABEL org.opencontainers.image.title="EASM Agent" \
       org.opencontainers.image.description="External attack surface monitoring agent" \
       org.opencontainers.image.source="https://github.com/cyberjangle101/cybersour-attack-surface-scanner" \
+      org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"
 

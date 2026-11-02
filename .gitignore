@@ -1,6 +1,5 @@
 # Go build output
-/cybersour
-/cybersour.exe
+/easm-agent
 *.exe
 *.test
 *.out

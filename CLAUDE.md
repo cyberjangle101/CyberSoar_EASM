@@ -107,10 +107,10 @@ Always test the feature that changed, plus anything it could break. Add a Go tes
 - `main` needs the Security Scan workflow to pass and owner approval. Do not try to bypass it.
 - Pushes to a branch with no PR are refused by the code-scanning rule (except the push that creates it): push once, then open the PR.
 - After every code change or release is merged, run the release workflow to build a new exe and publish it on the Releases page:
-  bump the version in the README, then follow "UAT before production" below. Never upload hand-built exes to Releases
+  bump the version in the README and add a CHANGELOG.md entry, then follow "UAT before production" below. Never upload hand-built exes to Releases
   (they carry no release key or signed `SHA256SUMS`, so agents cannot update from them).
 - Publishing is tag-driven. `.github/workflows/release.yml` builds, scans, signs `SHA256SUMS` with the
-  `EASM_RELEASE_SIGNING_KEY` secret and publishes. See RELEASING.md. Never handle the private key.
+  `EASM_RELEASE_SIGNING_KEY` secret and publishes. See docs/RELEASING.md. Never handle the private key.
 
 ### UAT before production (every change)
 
@@ -144,7 +144,8 @@ Every change goes to the UAT environment first, and reaches production only afte
   Plain HTTP and other hosts are only for `-X main.updateAPIBase=http://127.0.0.1:...` test builds.
 - Local release build (for testing): `CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=X.Y.Z"` with the newest Go toolchain,
   then `govulncheck -mode=binary` on an unstripped build. Do not commit binaries or stray build output (`easm-agent`).
-- Update the README ("What's new" and "Status") for every release: the release workflow refuses a tag the README does not mention.
+- For every release, update the README's "Status" line and add an entry at the top of CHANGELOG.md: the release workflow
+  refuses a tag that either file does not mention.
 - One agent per data folder (`easm.lock`). Tests or tools that open a data folder while an agent runs must expect the lock.
 - Commit messages are imperative and say why. PR descriptions list what was verified and what could not be run.
 

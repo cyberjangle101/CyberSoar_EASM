@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-The project is in early development and has no tagged releases yet. Security fixes are applied to the `main` branch.
+Only the latest release (see the [Releases page](https://github.com/cyberjangle101/cybersour-attack-surface-scanner/releases)) receives security fixes. Fixes ship as a new release, which installed agents offer to install from *System health → Updates*; container deployments update by deploying the new image tag.
 
 ## Reporting a Vulnerability
 

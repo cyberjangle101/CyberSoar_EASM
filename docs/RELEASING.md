@@ -42,8 +42,8 @@ key, and publish a release. Agents still on the old key need that release instal
 
 ## Every release
 
-1. On a `feat/vX.Y.Z` or `fix/...` branch: update the version in README ("Status" and
-   "What's new in X.Y"), pass the full gate in `CLAUDE.md`, and merge the PR.
+1. On a `feat/vX.Y.Z` or `fix/...` branch: update the version in the README's "Status" line,
+   add the release's entry to `CHANGELOG.md`, pass the full gate in `CLAUDE.md`, and merge the PR.
 2. UAT first: tag the merge commit on `main` as a release candidate and push it:
 
    ```
@@ -67,8 +67,8 @@ key, and publish a release. Agents still on the old key need that release instal
    and stops if none did. It then uses the `Production` environment, so it waits until the
    owner approves it under Actions ("Review deployments").
 4. For either tag, the Release workflow:
-   - in a read-only job with no secrets ("Build and scan"): checks that README mentions the
-     version, runs the tests, builds `easm-agent-windows-amd64.exe`, `easm-agent-linux-amd64` and
+   - in a read-only job with no secrets ("Build and scan"): checks that README and
+     CHANGELOG mention the version, runs the tests, builds `easm-agent-windows-amd64.exe`, `easm-agent-linux-amd64` and
      `easm-agent-linux-arm64` with the newest Go toolchain and `-X main.version=X.Y.Z`, and scans
      them with a pinned `govulncheck`;
    - in a separate job that runs only first-party code ("Sign and publish"): writes `SHA256SUMS`
