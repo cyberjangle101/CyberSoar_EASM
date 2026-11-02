@@ -2,7 +2,7 @@
 
 A lightweight, single-binary agent for continuous **External Attack Surface Management (EASM)**. It runs as a persistent background service on Windows or Linux, watches the internet-facing footprint of the organisations you tell it about, and emails you only when something **changes**.
 
-> **Status:** v1.9.14. What changed in each release is in [CHANGELOG.md](CHANGELOG.md). Every check the agent runs is listed in [docs/RULES.md](docs/RULES.md).
+> **Status:** v1.9.15. What changed in each release is in [CHANGELOG.md](CHANGELOG.md). Every check the agent runs is listed in [docs/RULES.md](docs/RULES.md).
 
 ## Why
 
@@ -13,7 +13,7 @@ Attack surfaces drift. A forgotten subdomain, a new certificate or an unexpected
 - **Passive discovery at no cost:** certificate transparency (crt.sh, CertSpotter), HackerTarget and urlscan.io with no key; more sources with free or paid keys
 - **DNS, ownership and exposure:** resolves every name, maps addresses to their network owner (Team Cymru, RIPEstat) to spot assets outside your expected networks, and adds open ports and CVEs from Shodan InternetDB and optional keyed sources
 - **Findings with evidence:** each finding gives its source of evidence, the risk and the fix, with links to check it yourself; every rule is listed in [docs/RULES.md](docs/RULES.md)
-- **Delta-only alerting:** email, Slack, Teams, webhooks, syslog/SIEM and Jira, only when something changes, so routine scans stay quiet
+- **Delta-only alerting:** email, Slack, Teams, webhooks, Jira, and syslog/SIEM over TLS to a collector on your own network, only when something changes, so routine scans stay quiet
 - **Web interface:** dashboard, findings, asset inventory, reports (page, PDF, CSV, JSON, SARIF, STIX) and an API
 - **Users and access:** viewer, analyst and admin roles, two-factor sign-in, Active Directory sign-in and an audit trail
 - **Optional checks, off by default:** active checks of your own hosts (TLS, headers, exposed files, screenshots) and threat intelligence (look-alike domains, leaked accounts, public code)
@@ -38,8 +38,11 @@ Attack surfaces drift. A forgotten subdomain, a new certificate or an unexpected
 5. **Dashboard** → *Add an entity to monitor*: enter `example.com`. Optionally add expected ASNs,
    organisation keywords and ignore patterns. Scanning starts immediately.
 
-The first scan of a domain is a silent baseline (it records what exists today). After that you
-are emailed only about new subdomains, new IP/DNS records, new certificates and new findings.
+The first scan of a domain is a baseline: it records what exists today without alerting on it,
+and sends a "baseline established" email. Security findings are the exception: anything risky it
+finds, such as an exposed service or a weak email policy, is emailed from that first scan on.
+After that you are emailed only about new subdomains, new IP/DNS records, new certificates and
+new findings.
 
 To run it on a server for several people, see *Workstation or server* below. For Docker and Kubernetes (GKE, AKS, EKS), see [docs/KUBERNETES.md](docs/KUBERNETES.md).
 

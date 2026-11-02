@@ -5,6 +5,8 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -17,6 +19,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -43,9 +46,11 @@ type ChannelCfg struct {
 	Secret      string `json:"secret,omitempty"` // webhook: key for the X-EASM-Signature header
 	HeaderName  string `json:"header_name,omitempty"`
 	HeaderValue string `json:"header_value,omitempty"`
-	Addr        string `json:"addr,omitempty"`   // syslog: host:port
-	Proto       string `json:"proto,omitempty"`  // syslog: udp | tcp
-	Format      string `json:"format,omitempty"` // syslog: cef | json
+	Addr        string `json:"addr,omitempty"`        // syslog: host:port, private or local addresses only
+	Proto       string `json:"proto,omitempty"`       // syslog: udp | tcp | tls
+	Format      string `json:"format,omitempty"`      // syslog: cef | json
+	CAPEM       string `json:"ca_pem,omitempty"`      // syslog over TLS: extra trusted certificate authority (PEM)
+	SkipVerify  bool   `json:"skip_verify,omitempty"` // syslog over TLS: do not check the server certificate (not recommended)
 	Project     string `json:"project,omitempty"`
 	IssueType   string `json:"issue_type,omitempty"`
 	User        string `json:"user,omitempty"`  // Jira: account email (Cloud); empty = bearer token
@@ -87,14 +92,23 @@ func (c *Channel) Validate() error {
 		}
 	case chSyslog:
 		g.Addr = strings.TrimSpace(g.Addr)
-		if h, p, err := net.SplitHostPort(g.Addr); err != nil || h == "" || p == "" {
+		h, p, err := net.SplitHostPort(g.Addr)
+		if err != nil || h == "" || p == "" {
 			return errors.New("the syslog server must look like host:514")
 		}
-		if g.Proto != "udp" && g.Proto != "tcp" {
-			return errors.New("choose UDP or TCP")
+		if g.Proto != "udp" && g.Proto != "tcp" && g.Proto != "tls" {
+			return errors.New("choose UDP, TCP or TLS")
 		}
 		if g.Format != "cef" && g.Format != "json" {
 			return errors.New("choose CEF or JSON")
+		}
+		if g.Proto != "tls" {
+			g.CAPEM, g.SkipVerify = "", false
+		} else if g.CAPEM != "" && !x509.NewCertPool().AppendCertsFromPEM([]byte(g.CAPEM)) {
+			return errors.New("the extra certificate authority is not valid PEM")
+		}
+		if err := checkSyslogHost(h); err != nil {
+			return err
 		}
 	case chJira:
 		if err := checkHTTPURL(g.URL); err != nil {
@@ -590,19 +604,88 @@ func syslogLine(e Event, format, hostname string) string {
 	return fmt.Sprintf("<%d>1 %s %s easm-agent - %d - %s", pri, ts, strings.ReplaceAll(hostname, " ", "_"), e.ID, msg)
 }
 
+// Syslog is for a collector on the organisation's own network: it has no authentication of its
+// own, so it may only go to private (RFC 1918, IPv6 ULA) or local addresses. Alerts that must
+// cross the internet go through a webhook, over HTTPS.
+var errSyslogPublic = errors.New("syslog may only be sent to a private or local address (10.x, 172.16-31.x, 192.168.x, fc00::/7 or loopback); to send alerts over the internet, use a webhook")
+
+func syslogAddrAllowed(ip net.IP) bool {
+	return ip != nil && (ip.IsPrivate() || ip.IsLoopback())
+}
+
+// checkSyslogHost refuses a syslog server that is, or resolves to, a public address. The same
+// rule is enforced again on every connection (syslogDialControl), so a name that later
+// resolves somewhere else is still refused.
+func checkSyslogHost(host string) error {
+	if ip := net.ParseIP(host); ip != nil {
+		if !syslogAddrAllowed(ip) {
+			return errSyslogPublic
+		}
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil || len(addrs) == 0 {
+		return fmt.Errorf("could not look up the syslog server %s, so it cannot be checked to be a private address", host)
+	}
+	for _, a := range addrs {
+		if !syslogAddrAllowed(a.IP) {
+			return errSyslogPublic
+		}
+	}
+	return nil
+}
+
+// syslogDialControl checks the address actually being connected to, after name resolution.
+func syslogDialControl(_, address string, _ syscall.RawConn) error {
+	h, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return err
+	}
+	if !syslogAddrAllowed(net.ParseIP(h)) {
+		return errSyslogPublic
+	}
+	return nil
+}
+
+func (cs *ChannelSender) dialSyslog(ctx context.Context, g ChannelCfg) (net.Conn, error) {
+	d := &net.Dialer{Timeout: cs.dialTO, Control: syslogDialControl}
+	if g.Proto != "tls" {
+		return d.DialContext(ctx, g.Proto, g.Addr)
+	}
+	host, _, _ := net.SplitHostPort(g.Addr)
+	tc := &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12, InsecureSkipVerify: g.SkipVerify} //nolint:gosec // an administrator may choose this explicitly; the page warns about it
+	if g.CAPEM != "" {
+		pool, err := x509.SystemCertPool()
+		if err != nil || pool == nil {
+			pool = x509.NewCertPool()
+		}
+		pool.AppendCertsFromPEM([]byte(g.CAPEM))
+		tc.RootCAs = pool
+	}
+	td := &tls.Dialer{NetDialer: d, Config: tc}
+	return td.DialContext(ctx, "tcp", g.Addr)
+}
+
 func (cs *ChannelSender) sendSyslog(ctx context.Context, c *Channel, events []Event) error {
 	host, _ := os.Hostname()
-	d := net.Dialer{Timeout: cs.dialTO}
-	conn, err := d.DialContext(ctx, c.Cfg.Proto, c.Cfg.Addr)
+	conn, err := cs.dialSyslog(ctx, c.Cfg)
 	if err != nil {
+		if errors.Is(err, errSyslogPublic) {
+			return errSyslogPublic
+		}
 		return fmt.Errorf("could not connect to the syslog server: %v", err)
 	}
 	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(cs.dialTO))
 	for _, e := range events {
 		line := syslogLine(e, c.Cfg.Format, host)
-		if c.Cfg.Proto == "tcp" {
-			line += "\n"
+		switch c.Cfg.Proto {
+		case "tcp":
+			line += "\n" // RFC 6587 newline framing
+		case "tls":
+			line = fmt.Sprintf("%d %s", len(line), line) // RFC 5425 octet counting
 		}
 		if _, err := conn.Write([]byte(line)); err != nil {
 			return fmt.Errorf("sending to the syslog server failed: %v", err)

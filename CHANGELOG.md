@@ -4,6 +4,12 @@ What changed in each release of EASM Agent, newest first. Releases and their sig
 
 ## 1.9
 
+**v1.9.15 (syslog over TLS, on your own network only):**
+
+* **Syslog / SIEM channels can use TLS** (RFC 5425, usually port 6514), and new channels offer it first. The collector's certificate is checked against the system's trusted authorities plus an internal CA you can paste in. Switching the check off is possible but marked as not recommended. The 1.6 notes said TLS was already supported; it was not, and that entry is corrected.
+* **Syslog only goes to private or local addresses:** 10.x, 172.16–31.x, 192.168.x, IPv6 fc00::/7 and loopback. Syslog has no sign-in of its own, so it is for a collector on your own network; alerts that must cross the internet go through a webhook over HTTPS. The rule is checked when a channel is saved, by resolving its name, and again on every connection, so a name that later points at a public address is refused too.
+* **After updating:** a syslog channel that points at a public address stops sending. The channels page shows why. Move it to a collector on your network, or use a webhook.
+
 **v1.9.14 (safer releases; Kubernetes pinned to a published image):**
 
 * **The Kubernetes manifests point at an image that exists.** They named 1.9.12, which was never published, so a deploy from `main` could not pull it. They now pin 1.9.13 by digest, so the image cannot change under you, and re-pinning is part of every release.
@@ -177,7 +183,7 @@ Each source below was checked against the live service before being added. All n
 
 **Optional live checks** (Settings → Active checks, off by default; SSRF-safe, only your own discovered hosts): TLS protocol/cipher/expiry, HTTP security headers, default/admin pages, open storage buckets, and screenshots when a Chrome/Chromium is installed.
 
-**Alert channels** (Settings → Alert channels): generic webhook (optionally HMAC-signed), Slack, Microsoft Teams, syslog/SIEM (UDP/TCP/TLS, CEF or JSON) and Jira tickets (de-duplicated). Each has its own minimum severity, a *Send test* button, and secrets are stored encrypted. Email alerts are grouped per host and link to each finding.
+**Alert channels** (Settings → Alert channels): generic webhook (optionally HMAC-signed), Slack, Microsoft Teams, syslog/SIEM (UDP or TCP, CEF or JSON; TLS came in 1.9.15) and Jira tickets (de-duplicated). Each has its own minimum severity, a *Send test* button, and secrets are stored encrypted. Email alerts are grouped per host and link to each finding.
 
 **API and exports.** Create bearer tokens under *Account* (viewer/analyst/admin; a token never exceeds its owner's current role). Endpoints live under `/api/v1/` (findings, assets, events, report); findings use the same key names as the CSV. SARIF 2.1.0 and STIX 2.1 exports are available there and on the Report page. Cookies never authenticate API calls.
 

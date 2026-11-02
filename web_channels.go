@@ -55,7 +55,8 @@ func (s *Server) channelAdd(w http.ResponseWriter, r *http.Request, sess *Sessio
 	f := r.PostFormValue
 	c := &Channel{Name: f("name"), Kind: f("kind"), MinSev: f("min_sev"), Cfg: ChannelCfg{
 		URL: f("url"), Secret: f("secret"), HeaderName: f("header_name"), HeaderValue: f("header_value"),
-		Addr: f("addr"), Proto: f("proto"), Format: f("format"), Project: f("project"), IssueType: f("issue_type"),
+		Addr: f("addr"), Proto: f("proto"), Format: f("format"), CAPEM: strings.TrimSpace(f("ca_pem")), SkipVerify: f("skip_verify") == "on",
+		Project: f("project"), IssueType: f("issue_type"),
 		User: strings.TrimSpace(f("user")), Token: f("token"),
 	}}
 	id, err := s.store.AddChannel(c)
