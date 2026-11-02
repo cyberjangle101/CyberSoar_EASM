@@ -98,9 +98,9 @@ func (s *Server) login2FA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	keys := signInKeys(ip, u.Username)
-	if s.throttled(keys) {
+	if d := s.blockedFor(keys); d > 0 {
 		s.pending.done(ticket)
-		restart("Too many failed attempts. Try again in a few minutes.")
+		restart(blockedMessage(d))
 		return
 	}
 	code := strings.TrimSpace(r.PostFormValue("code"))
@@ -115,6 +115,12 @@ func (s *Server) login2FA(w http.ResponseWriter, r *http.Request) {
 	if !good {
 		s.recordFail(keys)
 		s.auditAs(u.Username, u.Kind, r, "login.fail", "", "wrong two-factor code")
+		if d := s.blockedFor(keys); d > 0 {
+			// Saying "wait for the next code" here made the next, right code look broken.
+			s.pending.done(ticket)
+			restart(blockedMessage(d))
+			return
+		}
 		s.render(w, r, nil, "login2fa", http.StatusUnauthorized, map[string]any{"Title": "Two-factor sign-in", "PreCSRF": s.preCSRF(w, r),
 			"Error": "That code was not accepted. Wait for the next code and try again.", "Ticket": ticket})
 		return

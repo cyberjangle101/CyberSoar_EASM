@@ -43,7 +43,11 @@ func TestThrottleSharedAddress(t *testing.T) {
 	e.browser().setup("admin", "correct horse battery")
 	e.addUser("bob", "bob password 1", RoleViewer)
 	for i := 0; i < maxFails; i++ {
-		if code := e.loginFrom("10.0.0.1", "bob", "wrong-wrong-wrong"); code != 401 {
+		want := 401
+		if i == maxFails-1 {
+			want = 429 // the failure that sets off the block says so
+		}
+		if code := e.loginFrom("10.0.0.1", "bob", "wrong-wrong-wrong"); code != want {
 			t.Fatalf("attempt %d: %d", i, code)
 		}
 	}
@@ -71,7 +75,11 @@ func TestThrottlePerAccountAcrossAddresses(t *testing.T) {
 	e.browser().setup("admin", "correct horse battery")
 	e.addUser("bob", "bob password 1", RoleViewer)
 	for i := 0; i < acctMaxFails; i++ {
-		if code := e.loginFrom(fmt.Sprintf("192.0.2.%d", i+1), "admin", "wrong-wrong-wrong"); code != 401 {
+		want := 401
+		if i == acctMaxFails-1 {
+			want = 429 // the failure that sets off the block says so
+		}
+		if code := e.loginFrom(fmt.Sprintf("192.0.2.%d", i+1), "admin", "wrong-wrong-wrong"); code != want {
 			t.Fatalf("attempt %d: %d", i, code)
 		}
 	}

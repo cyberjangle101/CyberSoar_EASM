@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"time"
 )
@@ -84,16 +85,31 @@ func (f *failRec) stale(b bucket, now time.Time) bool {
 }
 
 // throttled reports whether any of the buckets is blocked.
-func (s *Server) throttled(bs []bucket) bool {
+func (s *Server) throttled(bs []bucket) bool { return s.blockedFor(bs) > 0 }
+
+// blockedFor returns how long the longest block among the buckets still runs (0 if none).
+func (s *Server) blockedFor(bs []bucket) time.Duration {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := time.Now()
+	var d time.Duration
 	for _, b := range bs {
 		if f := s.fails[b.key]; f != nil && now.Before(f.blocked) {
-			return true
+			d = max(d, f.blocked.Sub(now))
 		}
 	}
-	return false
+	return d
+}
+
+// blockedMessage tells someone how long a sign-in block lasts. Every further failure once the
+// block ends starts a longer one, so it says so: otherwise the next mistake looks like a fault.
+func blockedMessage(d time.Duration) string {
+	mins := int((d + time.Minute - 1) / time.Minute)
+	unit := "minutes"
+	if mins == 1 {
+		unit = "minute"
+	}
+	return fmt.Sprintf("Too many failed attempts, so sign-in is blocked for %d %s. After that, each wrong attempt blocks it again for longer.", mins, unit)
 }
 
 // recordFail counts a failed attempt against every bucket.
