@@ -507,7 +507,7 @@ jobs:
           kubectl create namespace easm
           kubectl -n easm create secret generic easm-key-passphrase --from-file=passphrase="$RUNNER_TEMP/passphrase"
           # The manifests exactly as shipped, with only the image swapped for the one under test.
-          kubectl kustomize deploy/kubernetes | sed -E 's#image: ghcr.io/[^ ]+/easm-agent:[^ ]+#image: easm-agent:uat#' > "$RUNNER_TEMP/easm.yaml"
+          kubectl kustomize deploy/kubernetes | sed -E 's#image: ghcr.io/[^ ]+/easm-agent[:@][^ ]+#image: easm-agent:uat#' > "$RUNNER_TEMP/easm.yaml"
           grep -q 'image: easm-agent:uat' "$RUNNER_TEMP/easm.yaml"
           kubectl apply -f "$RUNNER_TEMP/easm.yaml"
           kubectl -n easm rollout status statefulset/easm-agent --timeout=300s

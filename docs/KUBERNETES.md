@@ -22,10 +22,10 @@ The agent ships as a container image, `ghcr.io/cyberjangle101/easm-agent:<versio
 - **Provenance:** every image carries **SLSA build provenance**. Check it before you deploy:
 
   ```bash
-  gh attestation verify oci://ghcr.io/cyberjangle101/easm-agent:1.9.12 --repo cyberjangle101/cybersour-attack-surface-scanner
+  gh attestation verify oci://ghcr.io/cyberjangle101/easm-agent:1.9.13 --repo cyberjangle101/cybersour-attack-surface-scanner
   ```
 
-- **Pin the version:** pin a version tag, and ideally its digest (`…/easm-agent:1.9.12@sha256:…`). There's no `latest` tag on purpose.
+- **Pin the version:** `deploy/kubernetes/kustomization.yaml` pins a release by its digest, so the image can't change under you. There's no `latest` tag on purpose.
 - **Testing:** every release candidate's image goes through UAT before it can be promoted. The UAT run tests it hardened in Docker, then deploys these exact manifests to a kind cluster that enforces the restricted Pod Security Standard.
 - **Running it standalone:** `docker run` serves HTTPS with a self-signed certificate on port 8443, with its data in the `/data` volume.
 
@@ -145,7 +145,7 @@ The NetworkPolicy allows internet egress but blocks the cluster's private ranges
 ## Updating
 
 1. Wait for a release (the agent's System health page announces it).
-2. Change `newTag` in `deploy/kubernetes/kustomization.yaml`, then run `kubectl apply -k deploy/kubernetes`.
+2. Change `newTag` and `digest` in `deploy/kubernetes/kustomization.yaml` (the digest is in the release's "Container image" job log, or from `docker buildx imagetools inspect ghcr.io/cyberjangle101/easm-agent:X.Y.Z`), then run `kubectl apply -k deploy/kubernetes`.
 3. The StatefulSet replaces the pod. The new version opens the same volume, and it may upgrade the database on first start, so take a backup first.
 
 Going back means deploying the previous tag. A database that a newer version has already upgraded may need the backup from before the update.
