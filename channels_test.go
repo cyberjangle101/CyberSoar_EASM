@@ -4,8 +4,11 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -15,6 +18,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 func addEvents(t *testing.T, s *Store, evs ...Event) {
@@ -149,6 +153,100 @@ func TestSyslogChannelCEF(t *testing.T) {
 	if !strings.HasPrefix(line, "<163>1 2026-01-02T03:04:05Z ") || !strings.Contains(line, `CEF:0|EASM Agent|easm-agent|`) ||
 		!strings.Contains(line, `|exposed\|path|`) || !strings.Contains(line, `msg=x\=y\nline2`) || strings.Count(line, "\n") != 1 {
 		t.Fatalf("bad syslog line: %q", line)
+	}
+}
+
+// Syslog goes only to private or local addresses, checked when saved and again when connecting.
+func TestSyslogOnlyPrivateAddresses(t *testing.T) {
+	ok := []string{"10.1.2.3:514", "172.16.0.1:514", "172.31.255.254:6514", "192.168.1.5:6514", "[fd00::1]:514", "127.0.0.1:514", "[::1]:514", "localhost:514"}
+	bad := []string{"8.8.8.8:514", "192.0.2.1:514", "172.32.0.1:514", "169.254.169.254:514", "100.64.0.1:514", "[2001:db8::1]:514", "0.0.0.0:514", "224.0.0.1:514", "[::ffff:8.8.8.8]:514"}
+	for _, proto := range []string{"udp", "tcp", "tls"} {
+		for _, a := range ok {
+			c := &Channel{Name: "siem", Kind: chSyslog, MinSev: "low", Cfg: ChannelCfg{Addr: a, Proto: proto, Format: "cef"}}
+			if err := c.Validate(); err != nil {
+				t.Errorf("%s %s refused: %v", proto, a, err)
+			}
+		}
+		for _, a := range bad {
+			c := &Channel{Name: "siem", Kind: chSyslog, MinSev: "low", Cfg: ChannelCfg{Addr: a, Proto: proto, Format: "cef"}}
+			if err := c.Validate(); !errors.Is(err, errSyslogPublic) {
+				t.Errorf("%s %s accepted (%v)", proto, a, err)
+			}
+		}
+	}
+	// a channel saved before this rule, or a name that now resolves elsewhere, is refused at
+	// connection time, before anything is sent
+	h := newHarness(t)
+	for _, proto := range []string{"udp", "tcp", "tls"} {
+		c := &Channel{ID: 1, Name: "old", Kind: chSyslog, MinSev: "low", Cfg: ChannelCfg{Addr: "192.0.2.1:514", Proto: proto, Format: "cef"}}
+		if err := testSender(h).Send(context.Background(), c, []Event{{ID: 1, Severity: "high", Kind: "x", Detail: "y"}}); !errors.Is(err, errSyslogPublic) {
+			t.Errorf("%s: public collector not refused at send: %v", proto, err)
+		}
+	}
+}
+
+func TestSyslogOverTLS(t *testing.T) {
+	h := newHarness(t)
+	ca := newTestCA(t)
+	caPEM := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: ca.cert.Raw}))
+	cert := ca.leaf(t, -time.Hour, time.Hour, "localhost")
+	ln, err := tls.Listen("tcp", "127.0.0.1:0", &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = ln.Close() }()
+	got := make(chan string, 4)
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				defer func() { _ = c.Close() }()
+				if b, _ := io.ReadAll(c); len(b) > 0 { // a refused handshake delivers nothing
+					got <- string(b)
+				}
+			}(c)
+		}
+	}()
+	_, port, _ := net.SplitHostPort(ln.Addr().String())
+	addr := net.JoinHostPort("localhost", port)
+	e := Event{ID: 9, TS: "2026-01-02T03:04:05Z", Root: "a.test", Kind: "exposed-path", Severity: "high", Host: "h.a.test", Detail: "/.git exposed"}
+	send := func(cfg ChannelCfg) error {
+		c := &Channel{ID: 1, Name: "siem", Kind: chSyslog, MinSev: "low", Cfg: cfg}
+		if err := c.Validate(); err != nil {
+			return err
+		}
+		return testSender(h).Send(context.Background(), c, []Event{e})
+	}
+	// with the internal CA: delivered with RFC 5425 octet-counting framing
+	if err := send(ChannelCfg{Addr: addr, Proto: "tls", Format: "json", CAPEM: caPEM}); err != nil {
+		t.Fatal(err)
+	}
+	msg := <-got
+	n, rest, ok := strings.Cut(msg, " ")
+	if l, err := strconv.Atoi(n); !ok || err != nil || l != len(rest) || !strings.HasPrefix(rest, "<163>1 ") || !strings.Contains(rest, `"type":"exposed-path"`) {
+		t.Fatalf("bad RFC 5425 frame: %q", msg)
+	}
+	// without it the collector's certificate is refused and nothing is sent
+	if err := send(ChannelCfg{Addr: addr, Proto: "tls", Format: "cef"}); err == nil || !strings.Contains(err.Error(), "certificate") {
+		t.Fatalf("untrusted certificate accepted: %v", err)
+	}
+	// an administrator may switch verification off explicitly
+	if err := send(ChannelCfg{Addr: addr, Proto: "tls", Format: "cef", SkipVerify: true}); err != nil {
+		t.Fatal(err)
+	}
+	if m := <-got; !strings.Contains(m, "CEF:0|EASM Agent|") {
+		t.Fatalf("not delivered with verification off: %q", m)
+	}
+	// a broken CA is refused, and TLS-only options are dropped for UDP and TCP
+	if err := send(ChannelCfg{Addr: addr, Proto: "tls", Format: "cef", CAPEM: "not a certificate"}); err == nil {
+		t.Fatal("invalid CA accepted")
+	}
+	c := &Channel{Name: "siem", Kind: chSyslog, MinSev: "low", Cfg: ChannelCfg{Addr: addr, Proto: "tcp", Format: "cef", CAPEM: caPEM, SkipVerify: true}}
+	if err := c.Validate(); err != nil || c.Cfg.CAPEM != "" || c.Cfg.SkipVerify {
+		t.Fatalf("TLS options kept for TCP: %v %+v", err, c.Cfg)
 	}
 }
 
