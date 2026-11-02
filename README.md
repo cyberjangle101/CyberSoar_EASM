@@ -203,4 +203,4 @@ Report security problems privately, as described in [SECURITY.md](SECURITY.md). 
 
 ## License
 
-No licence has been chosen yet, so for now all rights are reserved. A `LICENSE` file will be added when one is.
+[MIT](LICENSE).
