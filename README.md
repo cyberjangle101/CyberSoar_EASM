@@ -2,7 +2,7 @@
 
 A lightweight, single-binary agent for continuous **External Attack Surface Management (EASM)**. It runs as a persistent background service on Windows or Linux, watches the internet-facing footprint of the organisations you tell it about, and emails you only when something **changes**.
 
-> **Status:** v1.9.13. See "What's new in 1.9" below. Every check the agent runs is listed in [docs/RULES.md](docs/RULES.md).
+> **Status:** v1.9.14. See "What's new in 1.9" below. Every check the agent runs is listed in [docs/RULES.md](docs/RULES.md).
 
 ## Why
 
@@ -52,6 +52,12 @@ are emailed only about new subdomains, new IP/DNS records, new certificates and 
 * **Users:** admin, analyst and read-only viewer roles; local accounts with optional two-factor sign-in, or Active Directory sign-in (see *What's new in 1.6*).
 
 ## What's new in 1.9
+
+**v1.9.14 (safer releases; Kubernetes pinned to a published image):**
+
+* **The Kubernetes manifests point at an image that exists.** They named 1.9.12, which was never published, so a deploy from `main` could not pull it. They now pin 1.9.13 by digest, so the image cannot change under you, and re-pinning is part of every release.
+* **Signed commits and tags.** Changes to `main` must now be signed, and release tags are signed too.
+* **The release signing key is held by the release environments only.** Only the job that signs a release candidate (UAT) or a production release (which also needs the owner's approval) can read it, instead of any workflow in the repository. The agent itself is unchanged from 1.9.13.
 
 **v1.9.13 (threat intelligence kept apart; evidence links that fit):**
 
