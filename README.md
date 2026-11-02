@@ -57,7 +57,8 @@ are emailed only about new subdomains, new IP/DNS records, new certificates and 
 
 * **The Kubernetes manifests point at an image that exists.** They named 1.9.12, which was never published, so a deploy from `main` could not pull it. They now pin 1.9.13 by digest, so the image cannot change under you, and re-pinning is part of every release.
 * **Signed commits and tags.** Changes to `main` must now be signed, and release tags are signed too.
-* **The release signing key is held by the release environments only.** Only the job that signs a release candidate (UAT) or a production release (which also needs the owner's approval) can read it, instead of any workflow in the repository. The agent itself is unchanged from 1.9.13.
+* **The release signing key is held by the release environments only.** Only the job that signs a release candidate (UAT) or a production release (which also needs the owner's approval) can read it, instead of any workflow in the repository.
+* **Sign-in blocks say so, with how long.** After too many wrong passwords or two-factor codes, the page now says sign-in is blocked and for how many minutes. Before, the wrong code that set off a block still said "wait for the next code and try again", so the next, right code was refused and two-factor looked broken. Once a block ends, one more wrong attempt blocks it again for longer (up to 30 minutes), and the message now says that too. The limits themselves are unchanged.
 
 **v1.9.13 (threat intelligence kept apart; evidence links that fit):**
 

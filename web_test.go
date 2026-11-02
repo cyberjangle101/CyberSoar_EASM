@@ -186,8 +186,12 @@ func TestWebFirstRunAndAuth(t *testing.T) {
 	// wrong password, then throttling
 	b3 := e.browser()
 	tk := b3.loginPre("/login")
-	for i := 0; i < 5; i++ {
-		if code, _, _ := b3.postRaw("/login", url.Values{"csrf": {tk}, "username": {"admin"}, "password": {"wrong-wrong-wrong"}}); code != 401 {
+	for i := 0; i < maxFails; i++ {
+		want := 401
+		if i == maxFails-1 {
+			want = 429 // the failure that sets off the block says so
+		}
+		if code, _, _ := b3.postRaw("/login", url.Values{"csrf": {tk}, "username": {"admin"}, "password": {"wrong-wrong-wrong"}}); code != want {
 			t.Fatalf("attempt %d: %d", i, code)
 		}
 	}

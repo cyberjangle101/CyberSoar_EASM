@@ -677,14 +677,17 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	typed := strings.TrimSpace(r.PostFormValue("username"))
 	keys := signInKeys(ip, typed)
-	if s.throttled(keys) {
-		again(http.StatusTooManyRequests, "Too many failed attempts. Try again in a few minutes.")
+	if d := s.blockedFor(keys); d > 0 {
+		again(http.StatusTooManyRequests, blockedMessage(d))
 		return
 	}
 	u, why := s.authenticate(r, typed, r.PostFormValue("password"))
 	if u == nil {
 		if !why.neutral {
 			s.recordFail(keys)
+			if d := s.blockedFor(keys); d > 0 {
+				why.status, why.message = http.StatusTooManyRequests, blockedMessage(d)
+			}
 		}
 		s.log.Warn("failed sign-in", "ip", ip)
 		s.auditAs(typed, "", r, "login.fail", "", why.audit)
