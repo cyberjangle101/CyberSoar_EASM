@@ -1,4 +1,4 @@
-# Bootstrap settings (config.example.yaml documents every key). Everything about what and
+# Bootstrap settings (docs/config.example.yaml documents every key). Everything about what and
 # how to scan is set in the web interface and kept in the database.
 apiVersion: v1
 kind: ConfigMap

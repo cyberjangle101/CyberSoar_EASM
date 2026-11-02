@@ -79,12 +79,13 @@ jobs:
           check-latest: true
           cache: false # no shared cache in a release build (cache poisoning)
 
-      - name: README mentions the version
+      - name: README and CHANGELOG mention the version
         env:
           TAG: ${{ github.ref_name }}
         run: |
           BASE=${TAG%%-*} # an RC is checked against the release it leads to
-          grep -q "${BASE}" README.md || { echo "README.md does not mention ${BASE} (update What's new and Status first)"; exit 1; }
+          grep -q "${BASE}" README.md || { echo "README.md does not mention ${BASE} (update its Status line first)"; exit 1; }
+          grep -q "${BASE}" CHANGELOG.md || { echo "CHANGELOG.md does not mention ${BASE} (add its entry first)"; exit 1; }
 
       - name: Tests
         run: go test -count=1 ./...
@@ -150,7 +151,7 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           if [ -z "$EASM_RELEASE_SIGNING_KEY" ]; then
-            echo "The EASM_RELEASE_SIGNING_KEY secret is not set; see RELEASING.md"; exit 1
+            echo "The EASM_RELEASE_SIGNING_KEY secret is not set; see docs/RELEASING.md"; exit 1
           fi
           go run ./tools/release sums -version "${TAG#v}" -dir dist
           go run ./tools/release sign -dir dist
