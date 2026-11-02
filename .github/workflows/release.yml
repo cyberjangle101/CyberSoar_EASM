@@ -499,7 +499,11 @@ jobs:
           set -euo pipefail
           "$RUNNER_TEMP/kind" create cluster --name easm --image "$NODE_IMAGE" --wait 180s
           docker tag "$REF" easm-agent:uat
-          "$RUNNER_TEMP/kind" load docker-image easm-agent:uat --name easm
+          # kind imports with --all-platforms, which fails on a multi-arch image whose other
+          # platforms were never pulled; load an archive of the platform the node runs instead.
+          docker save --platform linux/amd64 -o "$RUNNER_TEMP/easm-agent.tar" easm-agent:uat \
+            || docker save -o "$RUNNER_TEMP/easm-agent.tar" easm-agent:uat # Docker before 28 has no --platform
+          "$RUNNER_TEMP/kind" load image-archive "$RUNNER_TEMP/easm-agent.tar" --name easm
           kubectl create namespace easm
           kubectl -n easm create secret generic easm-key-passphrase --from-file=passphrase="$RUNNER_TEMP/passphrase"
           # The manifests exactly as shipped, with only the image swapped for the one under test.
@@ -524,6 +528,7 @@ jobs:
       - name: Diagnostics
         if: failure()
         run: |
+          docker version --format 'docker client {{.Client.Version}} server {{.Server.Version}}' || true
           docker logs easm 2>&1 | tail -n 50 || true
           kubectl -n easm describe statefulset,pod 2>/dev/null | tail -n 80 || true
           kubectl -n easm logs easm-agent-0 --tail=80 2>/dev/null || true
