@@ -98,6 +98,10 @@ Always test the feature that changed, plus anything it could break. Add a Go tes
 - Branch from an updated `main`: `feat/vX.Y.Z` or `fix/<name>`. Never commit to `main`.
 - Force-pushes are blocked on every branch (never amend or rebase pushed commits). Fixes go in a new commit, pushed only after
   code scanning for the previous push has finished: the repo rejects a push while it is still running.
+- `main` requires signed commits. Git signs every commit and tag with the owner's SSH signing key held in the Windows
+  ssh-agent (`commit.gpgsign`, `tag.gpgsign`, `gpg.ssh.program` set to Windows OpenSSH's `ssh-keygen`). Never pass
+  `--no-gpg-sign`, never read or copy the private key, and if signing fails because the agent has no key, ask me to run
+  `ssh-add` rather than working around it.
 - Open the PR with the REST API: `gh api repos/cyberjangle101/cybersour-attack-surface-scanner/pulls -f title=... -f head=... -f base=main -F body=@file.md`
   (`gh pr create` fails here because GraphQL is blocked).
 - `main` needs the Security Scan workflow to pass and owner approval. Do not try to bypass it.
