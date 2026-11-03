@@ -30,7 +30,7 @@ func (d *intelData) reliableFor(kind, key string, dnsClean bool) bool {
 	if d == nil || !d.enabled {
 		return false
 	}
-	if kind == "domain-expiry" {
+	if kind == "domain-expiry" || kind == "domain-unlocked" {
 		return d.domainOK
 	}
 	if kind == "tor-exit" {
@@ -395,6 +395,16 @@ func (s *Scanner) applyIntel(tx *Tx, t *Target, d *intelData, asns map[string]*A
 					msg += ", registrar " + d.domain.Registrar
 				}
 				raise("expiry:"+d.domain.Domain, "domain-expiry", sev, d.domain.Domain, msg, "RDAP")
+			}
+			// EASM-DNS-012: without a transfer lock, a hijacked registrar account or a forged
+			// request can move the domain to another registrar.
+			if lockApplies(d.domain.Domain) && len(d.domain.Status) > 0 && !transferLocked(d.domain.Status) {
+				msg := fmt.Sprintf("%s has no transfer lock: its registration status is %s, without clientTransferProhibited or serverTransferProhibited",
+					d.domain.Domain, strings.Join(d.domain.Status, ", "))
+				if d.domain.Registrar != "" {
+					msg += ". Registrar: " + d.domain.Registrar
+				}
+				raise("unlocked:"+d.domain.Domain, "domain-unlocked", "medium", d.domain.Domain, msg, "RDAP")
 			}
 		}
 	}

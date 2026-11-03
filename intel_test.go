@@ -14,7 +14,7 @@ import (
 
 func rdapBody(expires time.Time) string {
 	return fmt.Sprintf(`{"events":[{"eventAction":"expiration","eventDate":%q},{"eventAction":"registration","eventDate":"2010-01-01T00:00:00Z"}],
-	"status":["active"],"nameservers":[{"ldhName":"NS1.EXAMPLE.NET"}],
+	"status":["active","client transfer prohibited"],"nameservers":[{"ldhName":"NS1.EXAMPLE.NET"}],
 	"entities":[{"roles":["registrar"],"vcardArray":["vcard",[["version",{},"text","4.0"],["fn",{},"text","Example Registrar Inc"]]]}]}`,
 		expires.UTC().Format(time.RFC3339))
 }

@@ -229,7 +229,7 @@ func (s *Scanner) scanTarget(ctx context.Context, t *Target) error {
 
 	// 2. DNS resolution (bounded worker pool + global QPS limiter)
 	s.prog("Checking for wildcard DNS", 30, fmt.Sprintf("%d hosts found", len(hosts)))
-	wildcard := s.res.WildcardIPs(ctx, root)
+	wildcard, wildcardChecked := s.res.WildcardCheck(ctx, root)
 	if len(wildcard) > 0 {
 		log.Warn("wildcard DNS detected; wildcard-synthesised addresses will be ignored", "ips", len(wildcard))
 	}
@@ -261,6 +261,12 @@ func (s *Scanner) scanTarget(ctx context.Context, t *Target) error {
 	// 4. Email-auth posture (only when the underlying lookups succeeded)
 	s.prog("Checking email and DNS settings", 70, "SPF, DMARC, DKIM, MTA-STS, CAA, DNSSEC")
 	mail := s.emailPosture(ctx, root, hosts, results)
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	s.prog("Checking email and DNS settings", 72, "delegated zones, mail servers, certificate authorities")
+	dx := s.checkDelegations(ctx, root, hosts, results)
+	caFindings := s.checkCertAuthorities(ctx, root, disc.Certs, time.Now().UTC())
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -338,6 +344,14 @@ func (s *Scanner) scanTarget(ctx context.Context, t *Target) error {
 		}
 	}
 
+	webReached := map[string]bool{}
+	if act != nil {
+		for _, w := range act.results {
+			if w.Reached {
+				webReached[w.Host] = true
+			}
+		}
+	}
 	for _, h := range hosts {
 		if fromStore[h] {
 			continue // not mentioned by any source this time; its records are checked below
@@ -349,6 +363,22 @@ func (s *Scanner) scanTarget(ctx context.Context, t *Target) error {
 			st.Subdomains++
 			if h != root {
 				emit("subdomain", "info", h, "discovered via "+srcs, true)
+			}
+			// EASM-TLS-013: after the baseline, a host that first appears in Certificate
+			// Transparency and is live in DNS is someone publishing a new service.
+			if _, ct := disc.Hosts[h]["crtsh"]; !ct {
+				_, ct = disc.Hosts[h]["certspotter"]
+				if !ct {
+					continue
+				}
+			}
+			if hr := results[h]; !silent && h != root && hr != nil && !hr.NX && liveAddrs(hr, wildcard) != "" {
+				sev, how := "low", "it resolves in DNS but no web service answered (or active checks are off)"
+				if webReached[h] {
+					sev, how = "medium", "a web service answers on it"
+				}
+				raise("ctnew:"+h, "shadow-it-ct-subdomain", sev, h, fmt.Sprintf("%s appeared for the first time in Certificate Transparency (%s) and is live: it resolves to %s and %s. "+
+					"A certificate was issued for it, so someone has set up a new service under %s", h, srcs, liveAddrs(hr, wildcard), how, root), "Certificate Transparency")
 			}
 		}
 	}
@@ -485,6 +515,17 @@ func (s *Scanner) scanTarget(ctx context.Context, t *Target) error {
 	for _, is := range mail.issues {
 		raise("email:"+is.Host+":"+is.Code, "email-auth", is.Severity, is.Host, is.Detail, "")
 	}
+	for _, f := range dx.findings {
+		raise(f.key, f.kind, f.sev, f.host, f.detail, f.source)
+	}
+	for _, f := range caFindings {
+		raise(f.key, f.kind, f.sev, f.host, f.detail, f.source)
+	}
+	if len(wildcard) > 0 {
+		raise("wildcard:"+root, "dns-wildcard", "low", root, fmt.Sprintf("Any name under %s resolves, even names that were never created: random names return %s. "+
+			"This hides dangling and forgotten names (they never stop resolving), makes typos and made-up links reach your server, and inflates the asset count",
+			root, strings.Join(sortedKeys(wildcard), ", ")), "")
+	}
 
 	// Auto-resolve findings that no longer reproduce, but only when this scan could
 	// actually observe the thing (a DNS timeout must not "fix" a finding).
@@ -498,8 +539,20 @@ func (s *Scanner) scanTarget(ctx context.Context, t *Target) error {
 		switch f.Kind {
 		case "email-auth":
 			reliable = mail.reliable(f.Host, f.Key[strings.LastIndex(f.Key, ":")+1:])
-		case "exposed-service", "known-vuln", "ip-flagged", "eol-software", "domain-expiry":
+		case "exposed-service", "known-vuln", "ip-flagged", "eol-software", "domain-expiry", "domain-unlocked":
 			reliable = intel.reliableFor(f.Kind, f.Key, failed == 0)
+		case "dangling-ns", "dangling-mx":
+			reliable = dx.reliable(f.Key)
+			if hr := results[f.Host]; !reliable && hr != nil && hr.NX && len(hr.Failed) == 0 {
+				reliable = true // the name is gone, and with it the delegation or mail record
+			}
+		case "dns-wildcard":
+			reliable = wildcardChecked
+		case "ct-unauthorized-ca":
+			reliable = false // a certificate that was issued stays issued: it is closed by hand once looked into
+		case "shadow-it-ct-subdomain":
+			hr := results[f.Host]
+			reliable = hr != nil && hr.NX && len(hr.Failed) == 0 // stays until reviewed, unless the host is gone
 		case "tls-expired", "tls-expiring", "tls-hostname", "tls-untrusted", "tls-legacy", "default-page", "exposed-path", "no-https-redirect", "bucket-public", "bucket-takeover":
 			reliable = act.reliableFor(f.Key)
 			if hr := results[f.Host]; !reliable && act != nil && act.enabled && hr != nil && hr.NX && len(hr.Failed) == 0 {

@@ -173,6 +173,18 @@ func renderRules() string {
 	sort.Strings(sufs)
 	w("`%s`\n\n", strings.Join(sufs, "`, `"))
 
+	w("### DNS providers where anyone can create a zone (EASM-DNS-008)\n\nA lame delegation to one of these is named in the finding, because the zone can be created there by anyone:\n\n| Nameserver name contains | Provider |\n|---|---|\n")
+	for _, p := range cloudDNSProviders {
+		w("| `%s` | %s |\n", p.suffix, cell(p.name))
+	}
+	w("\n")
+
+	w("### CAA authorities (EASM-TLS-012)\n\nA certificate is compared with CAA only when its issuer is recognised here; other issuers are never reported.\n\n| Issuer name contains | Allowed by CAA identifiers |\n|---|---|\n")
+	for _, f := range caaFamilies {
+		w("| %s | `%s` |\n", cell(strings.Join(f.orgs, ", ")), strings.Join(f.caa, "`, `"))
+	}
+	w("\n")
+
 	w("### Managed datastores (EASM-CLOUD-003)\n\n| DNS suffix | Service |\n|---|---|\n")
 	for _, s := range datastoreSigs {
 		w("| `%s` | %s |\n", s.Suffix, cell(s.Provider))

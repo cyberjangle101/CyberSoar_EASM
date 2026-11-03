@@ -33,6 +33,7 @@ func (h *harness) seedExample() {
 	d.add(t, "example.test. 60 IN A 203.0.113.10")
 	d.add(t, `example.test. 60 IN TXT "v=spf1 include:_spf.example.net -all"`)
 	d.add(t, "example.test. 60 IN MX 10 mail.example.test.")
+	d.add(t, "mail.example.test. 60 IN A 203.0.113.12") // the mail server exists (EASM-DNS-009)
 	cleanMailDNS(t, d, "example.test")
 	d.add(t, "www.example.test. 60 IN A 203.0.113.10")
 	d.add(t, "api.example.test. 60 IN A 198.51.100.7")
@@ -105,7 +106,7 @@ func TestEndToEndDeltaAlerting(t *testing.T) {
 		t.Fatalf("delta scan should send exactly one more mail, total=%d", len(mails))
 	}
 	d := mails[2].Plain
-	for _, want := range []string{"new.example.test", "203.0.113.11", "dangling-cname", "github.io", "cert"} {
+	for _, want := range []string{"new.example.test", "203.0.113.11", "dangling-cname", "github.io", "cert", "shadow-it-ct-subdomain"} {
 		if !strings.Contains(d, want) {
 			t.Errorf("delta alert missing %q:\n%s", want, d)
 		}
@@ -132,9 +133,15 @@ func TestEndToEndDeltaAlerting(t *testing.T) {
 	if len(fs) != 1 || fs[0].Kind != "dangling-cname" {
 		t.Errorf("dangling finding should be resolved, got %+v", fs)
 	}
+	// The ASN finding stays open, and so does the review of new.example.test, which first
+	// appeared in Certificate Transparency after the baseline and is live (EASM-TLS-013).
 	open, _ := h.store.ListFindings("example.test", "open")
-	if len(open) != 1 || open[0].Kind != "asn-unexpected" {
-		t.Errorf("the ASN finding should remain open, got %+v", open)
+	kinds := map[string]string{}
+	for _, f := range open {
+		kinds[f.Kind] = f.Host
+	}
+	if len(open) != 2 || kinds["asn-unexpected"] != "api.example.test" || kinds["shadow-it-ct-subdomain"] != "new.example.test" {
+		t.Errorf("the ASN finding and the new-host review should remain open, got %+v", open)
 	}
 	// the new A record on old.example.test is itself a delta and may mail; record the count
 	base := h.smtp.count()

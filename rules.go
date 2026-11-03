@@ -40,6 +40,14 @@ var ruleIndex = map[string]ruleMeta{
 		"A name's CNAME points at a service listed as claimable by can-i-take-over-xyz, and its home page shows that service's 'nothing here' text."},
 	"domain-expiry": {"EASM-DNS-006", "DNS and domain", modeRegistry, "High within 14 days (or expired), Medium within 30, Low within 60",
 		"The registration expiry date in RDAP is close."},
+	"dangling-ns": {"EASM-DNS-008", "DNS and domain", modePassiveDNS, "High when the nameservers' domain is not registered, or when every delegated nameserver answers REFUSED or SERVFAIL, is not authoritative for the zone or does not exist; Medium when the nameservers' domain is registered but withdrawn from DNS",
+		"A zone is delegated (NS records, read from the domain's own nameservers when resolvers return SERVFAIL) to nameservers whose domain has no DNS delegation (NXDOMAIN; RDAP tells unregistered from on hold), or none of which serves the zone when asked directly for its SOA."},
+	"dangling-mx": {"EASM-DNS-009", "DNS and domain", modePassiveDNS, "High when the mail server's domain is not registered, Medium when it is registered but withdrawn from DNS, Low when only the mail server name does not exist",
+		"An MX record points at a mail server whose domain has no DNS delegation (NXDOMAIN; RDAP tells unregistered from on hold), or at a name that does not exist."},
+	"domain-unlocked": {"EASM-DNS-012", "DNS and domain", modeRegistry, "Medium",
+		"The RDAP status list of a generic top-level domain (not two-letter country codes, many of which do not use these statuses) has neither clientTransferProhibited nor serverTransferProhibited."},
+	"dns-wildcard": {"EASM-DNS-013", "DNS and domain", modePassiveDNS, "Low",
+		"Randomly generated names under the domain resolve to addresses (wildcard DNS)."},
 
 	// Email authentication
 	"email-auth/no-spf":               {"EASM-MAIL-001", "Email authentication", modePassiveDNS, "Medium", "No TXT record starting v=spf1 at the domain apex."},
@@ -71,6 +79,10 @@ var ruleIndex = map[string]ruleMeta{
 	"hsts-missing":       {"EASM-TLS-008", "TLS and HTTPS", modeActive, "Low", "An HTTPS site with a valid certificate answers 2xx without a Strict-Transport-Security header."},
 	"no-https-redirect": {"EASM-TLS-009", "TLS and HTTPS", modeActive, "Low",
 		"Port 80 answers with content instead of redirecting to https://, while the same host serves HTTPS."},
+	"ct-unauthorized-ca": {"EASM-TLS-012", "TLS and HTTPS", modeOSINT, "High",
+		"A certificate in Certificate Transparency, issued in the last 30 days and still valid, comes from an authority (recognised from its issuer name, see CAA authorities) that the CAA records governing one of its names do not allow (issuewild for wildcard names). Names with no CAA record up to the domain are not checked."},
+	"shadow-it-ct-subdomain": {"EASM-TLS-013", "TLS and HTTPS", modeOSINT, "Medium when the active web check reached a web service on it, otherwise Low",
+		"After the baseline scan, a host name first listed by Certificate Transparency (crt.sh or CertSpotter) resolves to an address that is not a wildcard answer."},
 
 	// Web exposure
 	"login-portal": {"EASM-WEB-001", "Web exposure", modeActive, "Per product (see login portals): High for infrastructure consoles, Medium for remote-access gateways, webmail/SSO and monitoring or collaboration tools, Low for website sign-ins",

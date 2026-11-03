@@ -90,8 +90,19 @@ func evidenceLinks(f *Finding, ip string, cves []string) []EvidenceLink {
 				EvidenceLink{"RDAP registration record", "https://rdap.org/domain/" + p, "registrar, dates and status"},
 				EvidenceLink{"urlscan.io", "https://urlscan.io/search/#domain:" + e, "what the site has shown when others scanned it"},
 				crt) // a certificate for a look-alike often means a phishing site is being set up
-		case f.Kind == "domain-expiry":
+		case f.Kind == "domain-expiry", f.Kind == "domain-unlocked":
 			l = append(l, EvidenceLink{"RDAP registration record", "https://rdap.org/domain/" + p, "registrar, dates and status"})
+		case f.Kind == "dangling-ns":
+			l = append(l, EvidenceLink{"Google public DNS (JSON)", "https://dns.google/resolve?type=NS&name=" + e, "the delegation as resolvers see it (SERVFAIL when no nameserver serves the zone)"})
+		case f.Kind == "dangling-mx":
+			l = append(l, EvidenceLink{"Google public DNS (JSON)", "https://dns.google/resolve?type=MX&name=" + e, "the MX records as published"},
+				EvidenceLink{"MXToolbox lookup", "https://mxtoolbox.com/SuperTool.aspx?action=mx%3a" + e, "mail records as seen from the internet"})
+		case f.Kind == "dns-wildcard":
+			l = append(l, EvidenceLink{"Google public DNS (JSON)", "https://dns.google/resolve?type=A&name=" + url.QueryEscape("this-name-does-not-exist-easm."+d), "a made-up name under the domain, which a wildcard answers"})
+		case f.Kind == "ct-unauthorized-ca":
+			l = append(l, crt, EvidenceLink{"Google public DNS (JSON)", "https://dns.google/resolve?type=CAA&name=" + e, "the CAA record that applies"})
+		case f.Kind == "shadow-it-ct-subdomain":
+			l = append(l, crt, EvidenceLink{"The site", "https://" + d + "/", "open the new service"})
 		case f.Kind == "email-auth":
 			l = append(l, EvidenceLink{"MXToolbox lookup", "https://mxtoolbox.com/SuperTool.aspx?action=mx%3a" + e, "mail and DNS records as seen from the internet"})
 		case f.Kind == "dangling-cname", f.Kind == "subdomain-takeover":

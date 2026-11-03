@@ -142,10 +142,12 @@ func findingCategory(kind string) string {
 	switch {
 	case kind == "email-auth":
 		return "Email security"
-	case strings.HasPrefix(kind, "tls-"), kind == "domain-expiry":
+	case strings.HasPrefix(kind, "tls-"), kind == "domain-expiry", kind == "domain-unlocked", kind == "ct-unauthorized-ca":
 		return "Certificates & TLS"
-	case kind == "dangling-cname", kind == "bucket-takeover", kind == "bucket-public", kind == "cloud-datastore":
+	case kind == "dangling-cname", kind == "dangling-ns", kind == "dangling-mx", kind == "bucket-takeover", kind == "bucket-public", kind == "cloud-datastore":
 		return "Take-over & cloud storage"
+	case kind == "dns-wildcard", kind == "shadow-it-ct-subdomain":
+		return "Ownership & network"
 	case kind == "exposed-service", kind == "known-vuln", kind == "eol-software", kind == "ip-flagged":
 		return "Exposed services & software"
 	case kind == "asn-unexpected", kind == "private-ip":
