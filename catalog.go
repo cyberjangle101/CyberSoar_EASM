@@ -146,6 +146,54 @@ var findingCatalog = map[string]FindingInfo{
 		Risk:     "Without Strict-Transport-Security, a browser may still make its first request over plain HTTP, where an attacker on the network can intercept or redirect it (SSL stripping).",
 		Solution: "Send Strict-Transport-Security: max-age=31536000; includeSubDomains once every name under the domain works over HTTPS.",
 	},
+	"directory-listing": {
+		Title:    "Web server directory listing is enabled",
+		Source:   "Active check: the home page is an automatic folder index (\"Index of /\")",
+		Risk:     "Anyone can browse and download every file in the folder, including ones never linked from the site. Archives, database dumps and backups found this way often hold source code, data and passwords.",
+		Solution: "Turn off directory indexes on the web server (Apache: Options -Indexes; nginx: autoindex off; IIS: Directory Browsing off), remove files that should not be public, and put an index page in the folder.",
+	},
+	"exposed-api-schema": {
+		Title:    "API documentation or GraphQL schema is public",
+		Source:   "Active check: well-known API description and Swagger UI paths, and a read-only GraphQL introspection query",
+		Risk:     "A full map of the API, every endpoint, parameter, query and mutation, tells an attacker exactly what to try, including internal or admin operations that were never meant to be found. Swagger UI also lets anyone call the API from a browser.",
+		Solution: "If the API is not deliberately public, put its documentation behind sign-in or remove it from production, and turn off GraphQL introspection in production. If it is public on purpose, accept the risk.",
+	},
+	"cors-credential-leak": {
+		Title:    "CORS trusts any web site, with the visitor's cookies",
+		Source:   "Active check: a request with a made-up Origin header, looking at the Access-Control-Allow-* response headers",
+		Risk:     "The server tells browsers that any site may read its responses on behalf of the visitor, cookies included. A malicious page a signed-in user visits can then read their data from this service.",
+		Solution: "Compare the Origin header against an allow-list of your own sites instead of echoing it back, and only send Access-Control-Allow-Credentials: true for those origins.",
+	},
+	"debug-mode-enabled": {
+		Title:    "Application runs in debug mode or announces exact versions",
+		Source:   "Active check: response headers, the error page for a made-up path, and well-known debug endpoints (Laravel Ignition, Symfony profiler)",
+		Risk:     "Interactive debuggers (Werkzeug, Laravel Ignition with commands enabled) let anyone run code on the server. Debug error pages and profilers show configuration, paths, and sometimes passwords. Exact version headers tell an attacker which known vulnerabilities to try.",
+		Solution: "Switch debug mode off in production (DEBUG = False, APP_DEBUG=false, the framework's production environment), remove profilers and debug endpoints, and stop sending X-Powered-By and version headers.",
+	},
+	"second-order-script-takeover": {
+		Title:    "Page loads a script from a domain anyone can register",
+		Source:   "Active check: the <script src> addresses on the home page, then DNS (and RDAP where enabled) for each outside domain",
+		Risk:     "The site runs JavaScript from a domain that has lapsed. Whoever registers it serves their own script to every visitor: stealing sessions and passwords, or changing what the page shows.",
+		Solution: "Remove the script tag, or host the script yourself. Re-register the domain if it was yours, and review the site's other third-party scripts (Subresource Integrity helps for fixed files).",
+	},
+	"insecure-auth-cookie": {
+		Title:    "Session cookie without Secure or HttpOnly",
+		Source:   "Active check: the Set-Cookie headers on the home page",
+		Risk:     "Without HttpOnly, any script injected into the page can read the session cookie and take over the account. Without Secure, the cookie is also sent over plain HTTP, where anyone on the network can read it.",
+		Solution: "Set HttpOnly and Secure (and SameSite=Lax or Strict) on session and sign-in cookies, usually a single setting in the framework or web server.",
+	},
+	"missing-security-headers": {
+		Title:    "Baseline security headers are missing",
+		Source:   "Active check: the response headers of the home page",
+		Risk:     "Without Content-Security-Policy, an injected script runs unhindered. Without X-Frame-Options (or CSP frame-ancestors), other sites can frame the page to trick users into clicking (clickjacking), which matters most on sign-in pages. Without X-Content-Type-Options: nosniff, browsers may run files as a different type than intended.",
+		Solution: "Send Content-Security-Policy (start in report-only mode), X-Frame-Options: DENY or CSP frame-ancestors 'none', and X-Content-Type-Options: nosniff, from the web server or framework.",
+	},
+	"tls-sni-hostname-leak": {
+		Title:    "Default certificate reveals internal host names",
+		Source:   "Active check: a TLS handshake with the address without a host name (no SNI)",
+		Risk:     "The certificate a server shows to anyone who connects by IP address names internal systems or hosts you have not published. That maps your addresses to internal and cloud host names for an attacker, and points at forgotten services.",
+		Solution: "Configure the server or load balancer's default certificate to one that names nothing internal (or to refuse connections without SNI), and review the hosts named.",
+	},
 	"no-security-txt": {
 		Title:    "No security.txt on the main site",
 		Source:   "Active check: a request for /.well-known/security.txt on the domain and www (HTTPS)",
@@ -256,6 +304,12 @@ var findingCatalog = map[string]FindingInfo{
 		Source:   "DNS resolvers (the DKIM public key)",
 		Risk:     "1024-bit keys are still accepted but are no longer considered comfortable; 2048 bits is the recommended size.",
 		Solution: "Rotate to a 2048-bit key at your next convenient maintenance window.",
+	},
+	"email-auth/mta-sts-broken": {
+		Title:    "MTA-STS policy is published but unusable",
+		Source:   "Active check: the policy file at https://mta-sts.<domain>/.well-known/mta-sts.txt, fetched the way a sending mail server does (valid certificate required)",
+		Risk:     "The TXT record says a policy exists, but senders cannot get a valid one, so they treat the domain as having none. Mail to you loses the protection MTA-STS was meant to give, and you may believe it is on.",
+		Solution: "Make https://mta-sts.<domain>/.well-known/mta-sts.txt answer 200 over HTTPS with a certificate valid for that name, containing version: STSv1, mode, mx: lines for your mail servers and max_age. Change the id= in the TXT record whenever the file changes.",
 	},
 	"email-auth/no-mta-sts": {
 		Title:    "No MTA-STS policy",

@@ -107,11 +107,11 @@ func evidenceLinks(f *Finding, ip string, cves []string) []EvidenceLink {
 			l = append(l, EvidenceLink{"MXToolbox lookup", "https://mxtoolbox.com/SuperTool.aspx?action=mx%3a" + e, "mail and DNS records as seen from the internet"})
 		case f.Kind == "dangling-cname", f.Kind == "subdomain-takeover":
 			l = append(l, EvidenceLink{"Google public DNS (JSON)", "https://dns.google/resolve?type=CNAME&name=" + e, "the CNAME record as published"})
-		case f.Kind == "hsts-missing", f.Kind == "no-https-redirect":
+		case f.Kind == "hsts-missing", f.Kind == "no-https-redirect", f.Kind == "missing-security-headers", f.Kind == "insecure-auth-cookie", f.Kind == "cors-credential-leak":
 			l = append(l, EvidenceLink{"securityheaders.com", "https://securityheaders.com/?followRedirects=on&q=" + e, "the response headers as seen from the internet"})
 		case f.Kind == "no-security-txt":
 			l = append(l, EvidenceLink{"security.txt on the site", "https://" + d + "/.well-known/security.txt", "the file the finding says is missing"})
-		case f.Kind == "default-page", f.Kind == "login-portal":
+		case f.Kind == "default-page", f.Kind == "login-portal", f.Kind == "directory-listing", f.Kind == "debug-mode-enabled", f.Kind == "second-order-script-takeover", f.Kind == "exposed-api-schema":
 			l = append(l, EvidenceLink{"The site", "https://" + d + "/", "open the page the finding is about"})
 		case f.Kind == "repo-exposure":
 			l = append(l, EvidenceLink{"GitHub code search", "https://github.com/search?type=code&q=" + url.QueryEscape(`"`+d+`"`), "every public file that mentions the domain"})

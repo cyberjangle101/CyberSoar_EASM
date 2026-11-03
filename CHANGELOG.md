@@ -4,9 +4,24 @@ What changed in each release of EASM Agent, newest first. Releases and their sig
 
 ## 1.9
 
-**v1.9.16 (six new DNS and certificate rules):**
+**v1.9.16 (fifteen new rules: DNS, certificates, web applications):**
 
-All six are passive: they use DNS, registration data and Certificate Transparency, which the scan already reads, plus one direct question to a delegated zone's nameservers, as any resolver asks. Each is listed in [docs/RULES.md](docs/RULES.md).
+Every rule is listed in [docs/RULES.md](docs/RULES.md).
+
+*Web and mail checks.* These are part of the opt-in active checks: they stay within your own networks, never touch private addresses, and only read. The one non-GET request is a GraphQL introspection query, which only asks for the schema.
+
+* **EASM-WEB-005 Directory listing** now has its own rule: High when the listing offers archives, dumps or backups, otherwise Medium. It was part of EASM-WEB-002, so an open listing finding there closes and reappears under this rule.
+* **EASM-WEB-006 API documentation or GraphQL schema is public:** Swagger UI and GraphQL introspection are Medium, and a bare API description is Low. Everything is Low on hosts named like dev, test or staging systems. The /swagger.json, /openapi.json and /v3/api-docs checks move here from EASM-WEB-002.
+* **EASM-WEB-007 CORS trusts any site with credentials, High:** a made-up Origin is echoed back with Access-Control-Allow-Credentials: true.
+* **EASM-WEB-008 Debug mode:** interactive debuggers and environment dumps (Werkzeug, Laravel Ignition, Symfony profiler, Django and Whoops debug pages) are High, ASP.NET detailed errors are Medium, and exact version headers are Low.
+* **EASM-WEB-009 Script from a domain anyone can register, High:** the home page loads JavaScript from a lapsed domain.
+* **EASM-WEB-010 Session cookie without Secure or HttpOnly:** Medium on login pages, Low elsewhere.
+* **EASM-WEB-011 Missing security headers** (CSP, X-Frame-Options, nosniff): Low, or Medium when a login page can be framed.
+* **EASM-MAIL-017 MTA-STS policy is unusable, Medium:** the TXT record exists, but the policy file is missing, has an invalid certificate, or is malformed.
+* **EASM-TLS-011 Default certificate reveals internal host names, Low:** asked without SNI, a server shows a certificate naming corp, local or internal hosts, or names under your domain the scan has not seen.
+* **Fixed:** login-portal, subdomain-takeover, security.txt, HSTS and weak-certificate findings were closed by any scan that ran without active checks. Now only a web check that ran can close them.
+
+*DNS and certificate checks.* These are passive: they use DNS, registration data and Certificate Transparency, which the scan already reads, plus one direct question to a delegated zone's nameservers, as any resolver asks.
 
 * **EASM-DNS-008 Delegated zone can be taken over (dangling NS), High.** A part of your domain is delegated to nameservers that either no longer serve it, which matters most on providers such as Route 53 or Azure DNS where anyone can create the zone, or that sit on a domain that is not registered. When resolvers only answer SERVFAIL, the delegation is read from your own nameservers. A nameserver domain that is registered but withdrawn from DNS (on hold) is Medium.
 * **EASM-DNS-009 Mail server on a lapsed or missing name (dangling MX).** High when the mail server's domain is not registered, so anyone could register it and receive your mail; Medium when it is on hold; Low when the mail server name simply does not exist.

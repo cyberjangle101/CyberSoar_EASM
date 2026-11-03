@@ -553,7 +553,13 @@ func (s *Scanner) scanTarget(ctx context.Context, t *Target) error {
 		case "shadow-it-ct-subdomain":
 			hr := results[f.Host]
 			reliable = hr != nil && hr.NX && len(hr.Failed) == 0 // stays until reviewed, unless the host is gone
-		case "tls-expired", "tls-expiring", "tls-hostname", "tls-untrusted", "tls-legacy", "default-page", "exposed-path", "no-https-redirect", "bucket-public", "bucket-takeover":
+		case "tls-expired", "tls-expiring", "tls-hostname", "tls-untrusted", "tls-legacy", "tls-weak-key", "tls-weak-signature", "hsts-missing",
+			"default-page", "exposed-path", "no-https-redirect", "login-portal", "subdomain-takeover", "no-security-txt", "bucket-public", "bucket-takeover",
+			"directory-listing", "exposed-api-schema", "debug-mode-enabled", "cors-credential-leak", "insecure-auth-cookie", "missing-security-headers",
+			"second-order-script-takeover", "tls-sni-hostname-leak":
+			// Only a web check that ran this scan can show these are gone. (Before 1.9.16 the
+			// login-portal, takeover, security.txt, HSTS and weak-certificate findings fell
+			// through to the DNS rule below, so switching active checks off closed them.)
 			reliable = act.reliableFor(f.Key)
 			if hr := results[f.Host]; !reliable && act != nil && act.enabled && hr != nil && hr.NX && len(hr.Failed) == 0 {
 				reliable = true // the host no longer exists, so what was wrong with it is gone too
