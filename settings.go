@@ -95,6 +95,9 @@ type Settings struct {
 	ActiveForeign        bool // also probe addresses outside the expected ownership
 	LookalikeEnabled     bool // look for registered look-alike domains
 	LookalikeMax         int
+	LookalikeProbe       bool // visit look-alike web sites to compare them with yours (contacts them; off by default)
+	DependencyConfusion  bool // check package names your sites reveal against npm and PyPI (off by default)
+	DNSBLEnabled         bool // look up your mail and web addresses on spam blocklists (off by default)
 	RelatedEnabled       bool // suggest related domains from shared certificates
 	ReverseIPEnabled     bool // suggest domains on the same addresses
 	ActivePaths          bool // look for exposed files such as .git and .env
@@ -365,7 +368,8 @@ func (s Settings) RuntimeWith(sec Secrets) *Config {
 			Services: s.ActiveServices, SNMP: s.ActiveSNMP,
 			Shots: s.Screenshots, MaxShots: s.ScreenshotMax, ChromePath: s.ChromePath, MaxHosts: s.ActiveMaxHosts,
 			Concurrency: s.ActiveConcurrency, Timeout: time.Duration(s.ActiveTimeoutSeconds) * time.Second},
-		Discover:      DiscoverCfg{Lookalikes: s.LookalikeEnabled, LookalikeMax: s.LookalikeMax, Related: s.RelatedEnabled, ReverseIP: s.ReverseIPEnabled},
+		Discover: DiscoverCfg{Lookalikes: s.LookalikeEnabled, LookalikeMax: s.LookalikeMax, Related: s.RelatedEnabled, ReverseIP: s.ReverseIPEnabled,
+			LookalikeProbe: s.LookalikeEnabled && s.LookalikeProbe, DependencyConfusion: s.DependencyConfusion, DNSBL: s.DNSBLEnabled},
 		RetentionDays: s.EventRetentionDays,
 		PublicURL:     s.PublicURL,
 	}

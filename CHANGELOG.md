@@ -4,9 +4,18 @@ What changed in each release of EASM Agent, newest first. Releases and their sig
 
 ## 1.9
 
-**v1.9.16 (twenty-four new rules: DNS, certificates, web applications, network services):**
+**v1.9.16 (twenty-eight new rules: DNS, certificates, web applications, network services, threat intelligence):**
 
 Every rule is listed in [docs/RULES.md](docs/RULES.md).
+
+*Threat intelligence and reputation.* These are all **off by default**.
+
+* **EASM-BRAND-005 New certificate for a look-alike domain, High.** Certificate Transparency shows a certificate from the last 30 days for a look-alike already reported under EASM-BRAND-001. It runs whenever look-alike checks are on.
+* **EASM-BRAND-004 Look-alike site copies yours.** High when it serves your exact site icon (with its Shodan favicon hash, to search for more copies) or a password form under your name or title; Medium when only the title matches. Its own switch, *Also visit the look-alike web sites*, is needed, because it connects to servers someone else, possibly an attacker, runs.
+* **EASM-BRAND-006 Internal package name anyone could publish (dependency confusion):** package names your own sites reveal in source maps, package.json or requirements.txt are checked against npm and PyPI. High when the name is free; Medium for a scoped npm name. Needs active checks, and the registries see the names.
+* **EASM-MAIL-018 Address on a spam blocklist:** your mail servers, SPF addresses, domain and www are looked up on SpamCop and PSBL. High for a mail address, Medium for a web-only one. Spamhaus is not used: it refuses lookups through public resolvers without a paid DQS key.
+
+*Not built, by design:* writing to buckets to test them, guessing other people's bucket names, open-relay tests that ask your mail server to relay, exploit checks, and scanning public container images. The reasons are in the pull requests.
 
 *Network-service checks.* These are part of the active checks, under a new *Check network services* switch that is on by default once active checks are on. They send one read-only request each, and only to ports that exposure data reports open on your own addresses.
 

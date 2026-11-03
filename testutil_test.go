@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/mail"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -580,6 +581,7 @@ type fakeIntel struct {
 	vtSubs     []string
 	vtKey      string
 	rdap       map[string]string // domain -> JSON body (missing = 404)
+	packages   map[string]bool   // "npm/name" or "pypi/name" that exist on the registry
 	forceCode  map[string]int    // service name -> forced HTTP status
 	hits       map[string]int
 	keysSeenIn []string // raw query strings that carried a key (to prove they never reach logs)
@@ -654,6 +656,15 @@ func newFakeIntel(t testing.TB) *fakeIntel {
 		}
 		reply(w, "virustotal", `{"data":[`+strings.Join(data, ",")+`],"meta":{}}`, true)
 	})
+	for _, reg := range []string{"npm", "pypi"} {
+		mux.HandleFunc("/"+reg+"/", func(w http.ResponseWriter, r *http.Request) {
+			name, _ := url.PathUnescape(strings.TrimSuffix(strings.TrimPrefix(r.URL.EscapedPath(), "/"+reg+"/"), "/json"))
+			f.mu.Lock()
+			ok := f.packages[reg+"/"+name]
+			f.mu.Unlock()
+			reply(w, reg, `{"name":"`+name+`"}`, ok)
+		})
+	}
 	mux.HandleFunc("/rdap/", func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
@@ -667,7 +678,7 @@ func newFakeIntel(t testing.TB) *fakeIntel {
 
 func (f *fakeIntel) urls() intelURLs {
 	return intelURLs{internetdb: f.srv.URL + "/idb/", shodan: f.srv.URL + "/shodan/", censys: f.srv.URL + "/censys/",
-		virustotal: f.srv.URL + "/vt/", rdap: f.srv.URL + "/rdap/"}
+		virustotal: f.srv.URL + "/vt/", rdap: f.srv.URL + "/rdap/", npm: f.srv.URL + "/npm/", pypi: f.srv.URL + "/pypi/"}
 }
 
 func (f *fakeIntel) hitCount(name string) int {

@@ -188,6 +188,30 @@ var findingCatalog = map[string]FindingInfo{
 		Risk:     "Without Content-Security-Policy, an injected script runs unhindered. Without X-Frame-Options (or CSP frame-ancestors), other sites can frame the page to trick users into clicking (clickjacking), which matters most on sign-in pages. Without X-Content-Type-Options: nosniff, browsers may run files as a different type than intended.",
 		Solution: "Send Content-Security-Policy (start in report-only mode), X-Frame-Options: DENY or CSP frame-ancestors 'none', and X-Content-Type-Options: nosniff, from the web server or framework.",
 	},
+	"lookalike-tls-issued": {
+		Title:    "New certificate issued for a look-alike domain",
+		Source:   "Certificate Transparency logs (crt.sh) for the look-alike domains already reported",
+		Risk:     "Someone obtained a publicly trusted certificate for a domain that resembles yours and accepts email or has a web address. Phishing sites need HTTPS to look genuine, so a fresh certificate usually means one is being set up.",
+		Solution: "Look at the site and the certificate. If it impersonates you, report it to the registrar and hosting provider for takedown, block it in your mail and web filters, and warn staff and customers.",
+	},
+	"phishing-clone": {
+		Title:    "Look-alike site copies yours",
+		Source:   "A visit to the look-alike's home page and icon, compared with your own site (optional, off by default)",
+		Risk:     "A domain that resembles yours serves your site icon, your page title, or a sign-in form under your name. That is the shape of a phishing site aimed at your staff or customers.",
+		Solution: "Collect evidence (screenshots, the crt.sh entry), report the site to the registrar, the hosting provider and services such as Google Safe Browsing, block it in your filters, and warn the people it targets.",
+	},
+	"dependency-confusion": {
+		Title:    "Internal package name could be published by anyone",
+		Source:   "Package names revealed by your own web services (source maps, package.json, requirements.txt), checked against npm and PyPI",
+		Risk:     "Your code uses a package name that does not exist on the public registry. An attacker who publishes a package with that name can get their code run on build servers and developers' machines that also look in the public registry (dependency confusion).",
+		Solution: "Publish a placeholder under that name or reserve your npm scope, configure package managers to fetch internal packages only from your private registry, and stop serving source maps and package files from production sites.",
+	},
+	"email-auth/dnsbl-listed": {
+		Title:    "Mail or web address is on a spam blocklist",
+		Source:   "DNS blocklist lookups (SpamCop, PSBL) for the addresses of your mail servers, SPF entries, domain and www",
+		Risk:     "Mail from a listed address is rejected or filed as spam by many receivers. A listing usually means the address sent spam, often because the server or an account on it was compromised.",
+		Solution: "Find out why it was listed (the list's lookup page explains), fix the cause, such as a compromised account, an open relay or a hacked web form, then request removal from each list.",
+	},
 	"unauthenticated-datastore": {
 		Title:    "Database, cache or control API answers without a password",
 		Source:   "Active check: one read-only request to a port exposure data reports open (Redis INFO, Memcached stats, Elasticsearch /, MongoDB listDatabases, Docker /version, kubelet /pods, anonymous FTP sign-in)",

@@ -85,7 +85,7 @@ func evidenceLinks(f *Finding, ip string, cves []string) []EvidenceLink {
 		switch {
 		case strings.HasPrefix(f.Kind, "tls-"):
 			l = append(l, EvidenceLink{"SSL Labs test", "https://www.ssllabs.com/ssltest/analyze.html?hideResults=on&d=" + e, "an independent check of the certificate and TLS set-up"}, crt)
-		case f.Kind == "lookalike-domain":
+		case f.Kind == "lookalike-domain", f.Kind == "lookalike-tls-issued", f.Kind == "phishing-clone":
 			l = append(l,
 				EvidenceLink{"RDAP registration record", "https://rdap.org/domain/" + p, "registrar, dates and status"},
 				EvidenceLink{"urlscan.io", "https://urlscan.io/search/#domain:" + e, "what the site has shown when others scanned it"},

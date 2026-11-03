@@ -160,6 +160,10 @@ func renderRules() string {
 	for _, code := range sortedUint16Keys(weakSuites) {
 		w("| `0x%04X` | %s |\n", code, cell(weakSuites[code]))
 	}
+	w("\n### Spam blocklists (EASM-MAIL-018)\n\n| Zone | List |\n|---|---|\n")
+	for _, z := range dnsblZones {
+		w("| `%s` | %s |\n", z.zone, cell(z.name))
+	}
 	w("\n### Cloud endpoints (EASM-CLOUD-006, EASM-CLOUD-007)\n\n| Name contains or ends with | What it is | Rule |\n|---|---|---|\n")
 	for _, s := range lbSuffixes {
 		w("| `%s` | %s | EASM-CLOUD-006 |\n", s.suffix, cell(s.name))
