@@ -99,6 +99,8 @@ type Settings struct {
 	ReverseIPEnabled     bool // suggest domains on the same addresses
 	ActivePaths          bool // look for exposed files such as .git and .env
 	ActiveBuckets        bool // check cloud storage that names point to
+	ActiveServices       bool // check network services: datastores, zone transfer, open resolver, NTLM, TLS ciphers, cloud endpoints
+	ActiveSNMP           bool // try the default SNMP communities public and private (off by default: it is a password guess)
 	ActiveMaxHosts       int
 	ActiveTimeoutSeconds int
 	ActiveConcurrency    int
@@ -174,6 +176,7 @@ func DefaultSettings() Settings {
 
 		ActivePaths:          true,
 		ActiveBuckets:        true,
+		ActiveServices:       true,
 		ActiveMaxHosts:       300,
 		ActiveTimeoutSeconds: 8,
 		ActiveConcurrency:    6,
@@ -359,6 +362,7 @@ func (s Settings) RuntimeWith(sec Secrets) *Config {
 			SubjectPrefix: s.SMTPSubjectPrefix, Timeout: 30 * time.Second, InsecureSkipVerify: s.SMTPInsecureSkipVerify,
 		},
 		Active: ActiveCfg{Enabled: s.ActiveChecks, Foreign: s.ActiveForeign, Paths: s.ActivePaths, Buckets: s.ActiveBuckets,
+			Services: s.ActiveServices, SNMP: s.ActiveSNMP,
 			Shots: s.Screenshots, MaxShots: s.ScreenshotMax, ChromePath: s.ChromePath, MaxHosts: s.ActiveMaxHosts,
 			Concurrency: s.ActiveConcurrency, Timeout: time.Duration(s.ActiveTimeoutSeconds) * time.Second},
 		Discover:      DiscoverCfg{Lookalikes: s.LookalikeEnabled, LookalikeMax: s.LookalikeMax, Related: s.RelatedEnabled, ReverseIP: s.ReverseIPEnabled},

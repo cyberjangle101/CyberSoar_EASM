@@ -279,7 +279,7 @@ func (s *Scanner) scanTarget(ctx context.Context, t *Target) error {
 	}
 
 	// 4c. Active checks (opt-in): look at the web services themselves
-	act := s.gatherActive(ctx, t, hosts, results, wildcard, asns)
+	act := s.gatherActive(ctx, t, hosts, results, wildcard, asns, intel)
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -556,7 +556,9 @@ func (s *Scanner) scanTarget(ctx context.Context, t *Target) error {
 		case "tls-expired", "tls-expiring", "tls-hostname", "tls-untrusted", "tls-legacy", "tls-weak-key", "tls-weak-signature", "hsts-missing",
 			"default-page", "exposed-path", "no-https-redirect", "login-portal", "subdomain-takeover", "no-security-txt", "bucket-public", "bucket-takeover",
 			"directory-listing", "exposed-api-schema", "debug-mode-enabled", "cors-credential-leak", "insecure-auth-cookie", "missing-security-headers",
-			"second-order-script-takeover", "tls-sni-hostname-leak":
+			"second-order-script-takeover", "tls-sni-hostname-leak",
+			"unauthenticated-datastore", "dns-open-resolver", "dns-zone-transfer", "snmp-default-creds", "ntlm-info-leak", "tls-weak-cipher",
+			"orphaned-load-balancer", "exposed-function-url", "waf-origin-bypass":
 			// Only a web check that ran this scan can show these are gone. (Before 1.9.16 the
 			// login-portal, takeover, security.txt, HSTS and weak-certificate findings fell
 			// through to the DNS rule below, so switching active checks off closed them.)

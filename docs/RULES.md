@@ -23,6 +23,8 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 | EASM-CLOUD-001 | Cloud storage bucket can be listed by anyone | `bucket-public` | Active: connects to the organisation's own servers (opt-in) | High |
 | EASM-CLOUD-002 | Name points to a storage bucket that does not exist | `bucket-takeover` | Active: connects to the organisation's own servers (opt-in) | High |
 | EASM-CLOUD-003 | Managed database or cache named in public DNS | `cloud-datastore` | Passive: DNS | Medium |
+| EASM-CLOUD-006 | Cloud load balancer has no healthy backend | `orphaned-load-balancer` | Active: connects to the organisation's own servers (opt-in) | Medium |
+| EASM-CLOUD-007 | Serverless function or API endpoint answers without authentication | `exposed-function-url` | Active: connects to the organisation's own servers (opt-in) | High when the JSON answer carries data (two or more fields or items), otherwise Medium |
 | EASM-DNS-001 | Dangling CNAME (possible subdomain takeover) | `dangling-cname` | Passive: DNS | High on a claim-able platform (see takeover platforms, plus the can-i-take-over-xyz services that report NXDOMAIN), otherwise Low |
 | EASM-DNS-002 | Private address in public DNS | `private-ip` | Passive: DNS | Low |
 | EASM-DNS-003 | Address outside expected ownership | `asn-unexpected` | Passive: DNS | High |
@@ -32,6 +34,8 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 | EASM-DNS-007 | Name shows an unclaimed service page (subdomain takeover) | `subdomain-takeover` | Active: connects to the organisation's own servers (opt-in) | High |
 | EASM-DNS-008 | Delegated zone can be taken over (dangling NS) | `dangling-ns` | Passive: DNS | High when the nameservers' domain is not registered, or when every delegated nameserver answers REFUSED or SERVFAIL, is not authoritative for the zone or does not exist; Medium when the nameservers' domain is registered but withdrawn from DNS |
 | EASM-DNS-009 | Mail server record points at a lapsed or missing name (dangling MX) | `dangling-mx` | Passive: DNS | High when the mail server's domain is not registered, Medium when it is registered but withdrawn from DNS, Low when only the mail server name does not exist |
+| EASM-DNS-010 | Nameserver allows a full zone transfer (AXFR) | `dns-zone-transfer` | Active: connects to the organisation's own servers (opt-in) | High |
+| EASM-DNS-011 | DNS server resolves names for anyone | `dns-open-resolver` | Active: connects to the organisation's own servers (opt-in) | Medium |
 | EASM-DNS-012 | Domain has no registrar transfer lock | `domain-unlocked` | Passive: registration data (RDAP) | Medium |
 | EASM-DNS-013 | Wildcard DNS answers for any name | `dns-wildcard` | Passive: DNS | Low |
 | EASM-EXP-001 | Sensitive service reachable from the internet | `exposed-service` | Third-party intelligence (needs a second source to be trusted) | High for the high-risk ports, Medium for the other risky ports (see risky ports) |
@@ -39,6 +43,10 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 | EASM-EXP-003 | Address flagged as compromised or malicious | `ip-flagged` | Third-party intelligence (needs a second source to be trusted) | High when Shodan tags it, Medium when only SANS ISC reports it |
 | EASM-EXP-004 | End-of-life operating system or software | `eol-software` | Third-party intelligence (needs a second source to be trusted) | Medium |
 | EASM-EXP-005 | Address is a Tor exit node | `tor-exit` | Passive: Tor Project exit list (download) | Medium |
+| EASM-EXP-006 | Database, cache or control API answers without a password | `unauthenticated-datastore` | Active: connects to the organisation's own servers (opt-in) | High |
+| EASM-EXP-008 | Site behind a CDN can be reached directly at its origin | `waf-origin-bypass` | Active: connects to the organisation's own servers (opt-in) | High |
+| EASM-EXP-009 | Device accepts the default SNMP password | `snmp-default-creds` | Active: connects to the organisation's own servers (opt-in) | High |
+| EASM-EXP-010 | NTLM sign-in reveals internal Windows details | `ntlm-info-leak` | Active: connects to the organisation's own servers (opt-in) | Low |
 | EASM-MAIL-001 | No SPF record | `email-auth/no-spf` | Passive: DNS | Medium |
 | EASM-MAIL-002 | More than one SPF record | `email-auth/spf-multiple` | Passive: DNS | High |
 | EASM-MAIL-003 | SPF allows any sender | `email-auth/spf-permissive` | Passive: DNS | High |
@@ -65,6 +73,7 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 | EASM-TLS-007 | TLS certificate is signed with SHA-1 or MD5 | `tls-weak-signature` | Active: connects to the organisation's own servers (opt-in) | Medium |
 | EASM-TLS-008 | HTTPS site does not send HSTS | `hsts-missing` | Active: connects to the organisation's own servers (opt-in) | Low |
 | EASM-TLS-009 | HTTP does not redirect to HTTPS | `no-https-redirect` | Active: connects to the organisation's own servers (opt-in) | Low |
+| EASM-TLS-010 | Server agrees to weak TLS cipher suites | `tls-weak-cipher` | Active: connects to the organisation's own servers (opt-in) | Medium |
 | EASM-TLS-011 | Default certificate reveals internal host names | `tls-sni-hostname-leak` | Active: connects to the organisation's own servers (opt-in) | Low |
 | EASM-TLS-012 | Certificate issued by an authority your CAA record does not allow | `ct-unauthorized-ca` | Passive: public sources (OSINT) | High |
 | EASM-TLS-013 | New host appeared in Certificate Transparency and is live | `shadow-it-ct-subdomain` | Passive: public sources (OSINT) | Medium when the active web check reached a web service on it, otherwise Low |
@@ -80,7 +89,7 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 | EASM-WEB-010 | Session cookie without Secure or HttpOnly | `insecure-auth-cookie` | Active: connects to the organisation's own servers (opt-in) | Medium on a page recognised as a login portal (EASM-WEB-001), otherwise Low |
 | EASM-WEB-011 | Baseline security headers are missing | `missing-security-headers` | Active: connects to the organisation's own servers (opt-in) | Medium when a login portal (EASM-WEB-001) can be framed (no X-Frame-Options or CSP frame-ancestors), otherwise Low |
 
-62 rules.
+71 rules.
 
 ## DNS and domain
 
@@ -173,6 +182,26 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 * **Evidence:** DNS: the MX records, whether each mail server name exists, and whether its domain is registered (with RDAP where enabled)
 * **Why it matters:** When the mail server's domain is not registered, anyone can register it and receive the mail sent to this name, including password resets. When the name merely does not exist, mail cannot be delivered and the record is a leftover from a service that was given up.
 * **What to do:** Point the MX record at your current mail service, or remove it. If the name should not receive mail at all, publish a null MX (0 .).
+
+### EASM-DNS-010: Nameserver allows a full zone transfer (AXFR)
+
+* **Finding type:** `dns-zone-transfer`
+* **Collection:** Active: connects to the organisation's own servers (opt-in)
+* **Triggered when:** With network-service checks on: one of the domain's nameservers, on the domain's own networks, answers a zone transfer (AXFR over TCP) with records.
+* **Severity:** High
+* **Evidence:** Active check: a zone-transfer request to the domain's own nameservers
+* **Why it matters:** Anyone can download every record in the zone: internal host names, test systems and services that are not linked anywhere. It is a ready-made target list.
+* **What to do:** Allow zone transfers only to your secondary nameservers (by address or TSIG key) in the nameserver's configuration.
+
+### EASM-DNS-011: DNS server resolves names for anyone
+
+* **Finding type:** `dns-open-resolver`
+* **Collection:** Active: connects to the organisation's own servers (opt-in)
+* **Triggered when:** With network-service checks on: an address of the organisation whose port 53 is reported open answers a recursive question for example.com with an answer and the RA flag, without being authoritative.
+* **Severity:** Medium
+* **Evidence:** Active check: one recursive question for example.com to an address with port 53 open
+* **Why it matters:** Open resolvers are abused to amplify denial-of-service attacks against others, which gets your addresses blocklisted, and they reveal what your network looks up.
+* **What to do:** Allow recursion only from your own networks, or stop running a resolver on the public address.
 
 ### EASM-DNS-012: Domain has no registrar transfer lock
 
@@ -458,6 +487,16 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 * **Why it matters:** Visitors who type the address or follow an old link stay on unencrypted HTTP, where anyone on the network can read or change what they see.
 * **What to do:** Redirect all HTTP requests to HTTPS (a 301) and enable HSTS once HTTPS works everywhere.
 
+### EASM-TLS-010: Server agrees to weak TLS cipher suites
+
+* **Finding type:** `tls-weak-cipher`
+* **Collection:** Active: connects to the organisation's own servers (opt-in)
+* **Triggered when:** With network-service checks on: a TLS 1.2 ClientHello offering only weak suites (see weak cipher suites) is answered with a ServerHello choosing one of them. Up to four are named.
+* **Severity:** Medium
+* **Evidence:** Active check: a TLS handshake offering only weak suites (NULL, export, RC4, DES, 3DES, anonymous)
+* **Why it matters:** These suites give no or breakable encryption, or no authentication of the server, so traffic can be read or tampered with. Compliance standards (PCI DSS and others) forbid them.
+* **What to do:** Allow only AEAD suites (AES-GCM, ChaCha20-Poly1305) with forward secrecy on the server, load balancer or CDN, and remove the legacy ones.
+
 ### EASM-TLS-011: Default certificate reveals internal host names
 
 * **Finding type:** `tls-sni-hostname-leak`
@@ -632,6 +671,26 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 * **Why it matters:** A name in public DNS is an alias for a managed database, cache or search cluster (RDS, Azure SQL, MongoDB Atlas, Redis, Elasticsearch and similar). The record does not prove the service is reachable, but it tells attackers exactly where it is, and these services are frequently exposed to the internet by mistake.
 * **What to do:** Confirm the service accepts connections only from your private network (security group, firewall rule or private endpoint) and requires authentication. Prefer internal DNS names for databases; remove the public record if it is not needed.
 
+### EASM-CLOUD-006: Cloud load balancer has no healthy backend
+
+* **Finding type:** `orphaned-load-balancer`
+* **Collection:** Active: connects to the organisation's own servers (opt-in)
+* **Triggered when:** With network-service checks on: a name that is, or is an alias for, a cloud load balancer or traffic manager (see cloud endpoints) answers HTTP 502, 503 or 504.
+* **Severity:** Medium
+* **Evidence:** Active check: the web service behind a name pointing at a cloud load balancer or traffic manager
+* **Why it matters:** A load balancer answering 502/503 serves nothing, which usually means the service behind it was removed but the name and balancer were left. Forgotten resources cost money, and on some platforms the name can be claimed by someone else.
+* **What to do:** Restore the backend if the service is still needed; otherwise delete the load balancer and the DNS record that points at it.
+
+### EASM-CLOUD-007: Serverless function or API endpoint answers without authentication
+
+* **Finding type:** `exposed-function-url`
+* **Collection:** Active: connects to the organisation's own servers (opt-in)
+* **Triggered when:** With network-service checks on: a name that is, or is an alias for, a serverless function URL or API endpoint (see cloud endpoints) answers 200 with JSON that is not an error, without any credentials.
+* **Severity:** High when the JSON answer carries data (two or more fields or items), otherwise Medium
+* **Evidence:** Active check: the home page of a name that is a Lambda function URL, API Gateway, Cloud Run or Cloud Functions endpoint
+* **Why it matters:** The function returns data to anyone on the internet without credentials. Function URLs are often created for testing with authentication set to none and then forgotten.
+* **What to do:** Require authentication on the endpoint (IAM auth, an authoriser, or Cloud Run's require-authentication setting), or remove it if it is not used.
+
 ## Exposure intelligence
 
 ### EASM-EXP-001: Sensitive service reachable from the internet
@@ -683,6 +742,46 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 * **Evidence:** Tor Project bulk exit list (check.torproject.org)
 * **Why it matters:** Traffic from anyone using Tor leaves the internet from this address. Abuse reports, blocklists and investigators will point at it, and on a server you did not mean to run as an exit it can mean the host was taken over.
 * **What to do:** If the exit is intended, document it and keep it on a separate address from your services. If not, find and stop the Tor process and investigate how it got there.
+
+### EASM-EXP-006: Database, cache or control API answers without a password
+
+* **Finding type:** `unauthenticated-datastore`
+* **Collection:** Active: connects to the organisation's own servers (opt-in)
+* **Triggered when:** With network-service checks on, for a port exposure data reports open on the organisation's own address: one read-only request (see datastore checks) is answered without credentials.
+* **Severity:** High
+* **Evidence:** Active check: one read-only request to a port exposure data reports open (Redis INFO, Memcached stats, Elasticsearch /, MongoDB listDatabases, Docker /version, kubelet /pods, anonymous FTP sign-in)
+* **Why it matters:** Anyone on the internet can read, change or delete the data, and a Docker API or kubelet gives full control of the machine. Exposed databases like these are found by automated scanners within hours and are a common cause of breaches and ransom notes.
+* **What to do:** Take the service off the internet (firewall or bind it to a private address), and turn on authentication. Then check its data and logs for signs that someone else already got in.
+
+### EASM-EXP-008: Site behind a CDN can be reached directly at its origin
+
+* **Finding type:** `waf-origin-bypass`
+* **Collection:** Active: connects to the organisation's own servers (opt-in)
+* **Triggered when:** With network-service checks and cloud ranges on: a name whose addresses are all in a CDN's published ranges serves a 2xx home page through the CDN, and one of the organisation's own web addresses, asked for the same name over HTTPS, returns the same status and the same page (identical, or the same title and a length within 20%).
+* **Severity:** High
+* **Evidence:** Active check: the site's home page through the CDN, compared with the same request sent straight to the organisation's own addresses
+* **Why it matters:** An attacker who finds the origin address skips the CDN's web application firewall, rate limits and DDoS protection, and attacks the server directly.
+* **What to do:** Let the origin accept traffic only from the CDN (its published address ranges, an authenticated origin pull, or a secret header), and change the origin address if it has been exposed for a long time.
+
+### EASM-EXP-009: Device accepts the default SNMP password
+
+* **Finding type:** `snmp-default-creds`
+* **Collection:** Active: connects to the organisation's own servers (opt-in)
+* **Triggered when:** With the separate SNMP switch on (off by default): an SNMPv2c GET of sysDescr.0 to UDP 161 with the community public or private is answered.
+* **Severity:** High
+* **Evidence:** Active check (separate switch, off by default): one SNMP read of the device description with the community public, then private
+* **Why it matters:** SNMP with a default community lets anyone read the device's configuration, interfaces and routing, and with private often change them. Network devices exposed like this are a favourite first step for attackers.
+* **What to do:** Turn SNMP off on internet-facing interfaces, or use SNMPv3 with authentication and encryption, and change the communities on every device.
+
+### EASM-EXP-010: NTLM sign-in reveals internal Windows details
+
+* **Finding type:** `ntlm-info-leak`
+* **Collection:** Active: connects to the organisation's own servers (opt-in)
+* **Triggered when:** With network-service checks on: a web service answers an NTLM NEGOTIATE (on / and, for Microsoft-looking hosts, the usual Exchange, AD FS and certificate-services paths) with a challenge that names the Active Directory domain, computer or Windows build.
+* **Severity:** Low
+* **Evidence:** Active check: an NTLM sign-in offer (NEGOTIATE) to the web service, reading the server's challenge
+* **Why it matters:** The challenge names the internal Active Directory domain, the server's computer name and its Windows build. That helps an attacker aim password spraying and pick exploits, and confirms an internal Windows server is reachable.
+* **What to do:** Prefer modern sign-in (Kerberos behind a gateway, or SAML/OIDC) on internet-facing services, and keep Windows servers patched. Where NTLM must stay, accept the risk with a note.
 
 ## Threat intelligence (off by default)
 
@@ -843,6 +942,62 @@ On hosts named like developer or test systems every one of these is Low.
 | `/swagger-ui/` | Medium | Swagger UI is public, so anyone can browse and call the API from the browser |
 | `/api-docs/` | Medium | Swagger UI is public, so anyone can browse and call the API from the browser |
 | `/graphql`, `/api/graphql` (POST of a read-only introspection query) | Medium | GraphQL introspection is enabled, so anyone can download the full schema |
+
+### Datastore checks (EASM-EXP-006)
+
+One request each, only to a port exposure data reports open on an address the active checks may reach.
+
+| Port | Service |
+|---|---|
+| 21 | FTP |
+| 2375 | Docker API |
+| 6379 | Redis |
+| 9200 | Elasticsearch |
+| 10250 | Kubernetes kubelet |
+| 10255 | Kubernetes kubelet (read-only port) |
+| 11211 | Memcached |
+| 27017 | MongoDB |
+
+### Weak cipher suites (EASM-TLS-010)
+
+| Code | Suite |
+|---|---|
+| `0x0001` | NULL (RSA_WITH_NULL_MD5) |
+| `0x0002` | NULL (RSA_WITH_NULL_SHA) |
+| `0x0003` | export (RSA_EXPORT_WITH_RC4_40_MD5) |
+| `0x0004` | RC4 (RSA_WITH_RC4_128_MD5) |
+| `0x0005` | RC4 (RSA_WITH_RC4_128_SHA) |
+| `0x0006` | export (RSA_EXPORT_WITH_RC2_CBC_40_MD5) |
+| `0x0008` | export (RSA_EXPORT_WITH_DES40_CBC_SHA) |
+| `0x0009` | DES (RSA_WITH_DES_CBC_SHA) |
+| `0x000A` | 3DES (RSA_WITH_3DES_EDE_CBC_SHA) |
+| `0x0014` | export (DHE_RSA_EXPORT_WITH_DES40_CBC_SHA) |
+| `0x0016` | 3DES (DHE_RSA_WITH_3DES_EDE_CBC_SHA) |
+| `0x0018` | anonymous (DH_anon_WITH_RC4_128_MD5) |
+| `0x001B` | anonymous (DH_anon_WITH_3DES_EDE_CBC_SHA) |
+| `0x0034` | anonymous (DH_anon_WITH_AES_128_CBC_SHA) |
+| `0x003A` | anonymous (DH_anon_WITH_AES_256_CBC_SHA) |
+| `0x003B` | NULL (RSA_WITH_NULL_SHA256) |
+| `0xC006` | NULL (ECDHE_ECDSA_WITH_NULL_SHA) |
+| `0xC007` | RC4 (ECDHE_ECDSA_WITH_RC4_128_SHA) |
+| `0xC008` | 3DES (ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA) |
+| `0xC010` | NULL (ECDHE_RSA_WITH_NULL_SHA) |
+| `0xC011` | RC4 (ECDHE_RSA_WITH_RC4_128_SHA) |
+| `0xC012` | 3DES (ECDHE_RSA_WITH_3DES_EDE_CBC_SHA) |
+| `0xC018` | anonymous (ECDH_anon_WITH_AES_128_CBC_SHA) |
+
+### Cloud endpoints (EASM-CLOUD-006, EASM-CLOUD-007)
+
+| Name contains or ends with | What it is | Rule |
+|---|---|---|
+| `.elb.amazonaws.com` | AWS Elastic Load Balancing | EASM-CLOUD-006 |
+| `.trafficmanager.net` | Azure Traffic Manager | EASM-CLOUD-006 |
+| `.azurefd.net` | Azure Front Door | EASM-CLOUD-006 |
+| `.cloudapp.azure.com` | an Azure public IP / Application Gateway | EASM-CLOUD-006 |
+| `.on.aws` | an AWS Lambda function URL | EASM-CLOUD-007 |
+| `.execute-api.` | an AWS API Gateway endpoint | EASM-CLOUD-007 |
+| `.run.app` | a Google Cloud Run service | EASM-CLOUD-007 |
+| `.cloudfunctions.net` | a Google Cloud Function | EASM-CLOUD-007 |
 
 ### Debug signs (EASM-WEB-008)
 
