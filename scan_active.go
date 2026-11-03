@@ -22,6 +22,7 @@ type activeData struct {
 	lapsed  map[string][]string       // "host:port" -> script domains on that page that are not registered (EASM-WEB-009)
 	sniLeak map[string][]string       // address -> internal or unknown names on its default certificate (EASM-TLS-011)
 	sniHost map[string]string         // address -> a host name that points at it, to file the finding under
+	extra   []dnsxFinding             // network-service and cloud-endpoint findings (scan_net.go)
 }
 
 func webScope(host string, port int) string { return "web|" + host + "|" + strconv.Itoa(port) }
@@ -34,6 +35,10 @@ func activeScope(key string) string {
 		return "web|" + p[2] + "|" + p[3]
 	case len(p) >= 4 && p[0] == "bucket":
 		return "bucket|" + p[2] + "|" + p[3]
+	case len(p) >= 5 && p[0] == "net" && p[4] == "axfr":
+		return "net|" + p[2] + "|" + p[3] + "|axfr"
+	case len(p) >= 4 && p[0] == "net":
+		return "net|" + p[2] + "|" + p[3]
 	}
 	return ""
 }
@@ -60,7 +65,7 @@ type probeJob struct {
 	port     int
 }
 
-func (s *Scanner) gatherActive(ctx context.Context, t *Target, hosts []string, results map[string]*HostResult, wildcard map[string]struct{}, asns map[string]*ASNInfo) *activeData {
+func (s *Scanner) gatherActive(ctx context.Context, t *Target, hosts []string, results map[string]*HostResult, wildcard map[string]struct{}, asns map[string]*ASNInfo, intel *intelData) *activeData {
 	cfg := s.cfg.Active
 	d := &activeData{enabled: cfg.Enabled, buckets: map[string][]BucketResult{}, shots: map[string][]byte{}, scopes: map[string]bool{},
 		lapsed: map[string][]string{}, sniLeak: map[string][]string{}, sniHost: map[string]string{}}
@@ -216,6 +221,10 @@ func (s *Scanner) gatherActive(ctx context.Context, t *Target, hosts []string, r
 			}
 		}
 	}
+	if (cfg.Services || cfg.SNMP) && ctx.Err() == nil {
+		s.prog("Checking network services", 84, "databases, DNS, TLS ciphers, cloud endpoints")
+		s.gatherNet(ctx, t, results, wildcard, asns, intel, d, pr)
+	}
 	if cfg.Shots && ctx.Err() == nil {
 		s.takeShots(ctx, d, cfg)
 	}
@@ -370,6 +379,9 @@ func (s *Scanner) applyActive(tx *Tx, root string, d *activeData, now string, em
 					fmt.Sprintf("%s answers over plain HTTP (status %d) instead of sending visitors to the HTTPS site.", wr.URL(), wr.Status), "")
 			}
 		}
+	}
+	for _, f := range d.extra {
+		raise(f.key, f.kind, f.sev, f.host, f.detail, "")
 	}
 	for _, ip := range sortedKeys(d.sniLeak) {
 		names := d.sniLeak[ip]

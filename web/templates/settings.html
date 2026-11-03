@@ -52,6 +52,8 @@
     <label class="check wide"><input type="checkbox" name="active_checks" {{if .S.ActiveChecks}}checked{{end}}> Run active checks during scans</label>
     <label class="check"><input type="checkbox" name="active_paths" {{if .S.ActivePaths}}checked{{end}}> Look for exposed files (.git, .env, status pages)</label>
     <label class="check"><input type="checkbox" name="active_buckets" {{if .S.ActiveBuckets}}checked{{end}}> Check cloud storage that names point to</label>
+    <label class="check wide"><input type="checkbox" name="active_services" {{if .S.ActiveServices}}checked{{end}}> Check network services <span class="hint">Databases and caches that answer without a password, DNS zone transfers and open resolvers, weak TLS ciphers, Windows (NTLM) details and cloud endpoints. Read-only requests to the ports exposure data reports open.</span></label>
+    <label class="check wide"><input type="checkbox" name="active_snmp" {{if .S.ActiveSNMP}}checked{{end}}> Try the default SNMP passwords (public, private) <span class="hint">One read of the device description per address. It is a password attempt, so switch it on only where you are allowed to.</span></label>
     <label class="check wide"><input type="checkbox" name="active_foreign" {{if .S.ActiveForeign}}checked{{end}}> Also probe addresses outside my expected networks <span class="hint">That can touch other people&rsquo;s servers (for example a SaaS provider). Leave off unless you know you may.</span></label>
     <label>Hosts per scan <input name="active_max_hosts" inputmode="numeric" value="{{.S.ActiveMaxHosts}}"></label>
     <label>Timeout per request (seconds) <input name="active_timeout_seconds" inputmode="numeric" value="{{.S.ActiveTimeoutSeconds}}"></label>

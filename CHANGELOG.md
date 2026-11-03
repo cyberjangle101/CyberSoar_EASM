@@ -4,9 +4,21 @@ What changed in each release of EASM Agent, newest first. Releases and their sig
 
 ## 1.9
 
-**v1.9.16 (fifteen new rules: DNS, certificates, web applications):**
+**v1.9.16 (twenty-four new rules: DNS, certificates, web applications, network services):**
 
 Every rule is listed in [docs/RULES.md](docs/RULES.md).
+
+*Network-service checks.* These are part of the active checks, under a new *Check network services* switch that is on by default once active checks are on. They send one read-only request each, and only to ports that exposure data reports open on your own addresses.
+
+* **EASM-EXP-006 Database, cache or control API answers without a password, High:** Redis INFO, Memcached stats, Elasticsearch, MongoDB listDatabases, the Docker API, the Kubernetes kubelet, and anonymous FTP.
+* **EASM-DNS-010 Zone transfer allowed, High:** one of your own nameservers hands out the whole zone (AXFR).
+* **EASM-DNS-011 Open DNS resolver, Medium.**
+* **EASM-TLS-010 Weak TLS cipher suites, Medium:** NULL, export, RC4, DES, 3DES or anonymous suites, found with a handshake that offers nothing else.
+* **EASM-EXP-010 NTLM sign-in reveals internal Windows details, Low:** the Active Directory domain, computer name and Windows build.
+* **EASM-CLOUD-006 Cloud load balancer with no healthy backend, Medium:** AWS ELB, Azure Traffic Manager or Front Door answering 502, 503 or 504.
+* **EASM-CLOUD-007 Serverless function or API endpoint without authentication:** a Lambda URL, API Gateway, Cloud Run or Cloud Functions endpoint returns JSON data. High with real data, otherwise Medium.
+* **EASM-EXP-008 Origin reachable around the CDN, High:** a site behind a CDN is also served directly by one of your own addresses, which bypasses the WAF.
+* **EASM-EXP-009 Default SNMP password, High.** This one has its own switch, **off by default**, because it tries the communities public and private, which is a password attempt.
 
 *Web and mail checks.* These are part of the opt-in active checks: they stay within your own networks, never touch private addresses, and only read. The one non-GET request is a GraphQL introspection query, which only asks for the schema.
 

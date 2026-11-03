@@ -1515,6 +1515,7 @@ func parseSettingsForm(r *http.Request, cur Settings) (Settings, error) {
 	s.AlertRemovals = on("alert_removals")
 	s.Require2FA = on("require_2fa")
 	s.ActiveChecks, s.ActiveForeign, s.ActivePaths, s.ActiveBuckets = on("active_checks"), on("active_foreign"), on("active_paths"), on("active_buckets")
+	s.ActiveServices, s.ActiveSNMP = on("active_services"), on("active_snmp")
 	s.Screenshots, s.ChromePath = on("screenshots"), strings.TrimSpace(r.PostFormValue("chrome_path"))
 	s.CrtShEnabled, s.HackerTargetEnabled, s.OTXEnabled, s.AnubisEnabled = on("crtsh_enabled"), on("hackertarget_enabled"), on("otx_enabled"), on("anubis_enabled")
 	s.ASNEnabled, s.ASNBGPViewFallback = on("asn_enabled"), on("asn_bgpview_fallback")

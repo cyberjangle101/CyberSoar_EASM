@@ -32,6 +32,8 @@ type ActiveCfg struct {
 	Foreign     bool // also probe addresses outside the expected ownership
 	Paths       bool // look for well-known exposed files
 	Buckets     bool // check cloud storage that names point to
+	Services    bool // check network services (probe_net.go)
+	SNMP        bool // try default SNMP communities
 	Shots       bool
 	MaxShots    int
 	ChromePath  string
@@ -129,6 +131,7 @@ type WebResult struct {
 	NoHeaders  []string    // baseline security headers a 2xx HTML page does not send
 	NoFrameOpt bool        // neither X-Frame-Options nor CSP frame-ancestors
 	Scripts    []string    // external hosts the home page loads scripts from
+	RootJSON   string      // the home page is JSON: "data", "small", "error", or "" (not JSON)
 	Portals    []PortalHit // sign-in pages and consoles recognised (portals.go)
 	SecTxt     string      // apex and www over HTTPS only: "present", "missing", or "" (not checked)
 	Takeover   string      // the unclaimed service page shown, e.g. "GitHub Pages via x.github.io" ("" = none)
@@ -515,6 +518,7 @@ func (p *Prober) probeWeb(ctx context.Context, host, ip string, port int, scheme
 	wr.rootBody = root.Body
 	wr.Portals = portalsOnPage(root.Status, root.Header, root.Body)
 	wr.Cookies = insecureCookies(root.Header, scheme == "https")
+	wr.RootJSON = jsonShape(root.Header, root.Body)
 	if root.Status >= 200 && root.Status < 300 && strings.Contains(strings.ToLower(root.Header.Get("Content-Type")), "html") {
 		wr.NoHeaders, wr.NoFrameOpt = missingHeaders(root.Header)
 		wr.Scripts = scriptHosts(root.Body, host)

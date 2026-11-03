@@ -146,8 +146,12 @@ func findingCategory(kind string) string {
 		return "Certificates & TLS"
 	case kind == "dangling-cname", kind == "dangling-ns", kind == "dangling-mx", kind == "bucket-takeover", kind == "bucket-public", kind == "cloud-datastore":
 		return "Take-over & cloud storage"
-	case kind == "dns-wildcard", kind == "shadow-it-ct-subdomain":
+	case kind == "dns-wildcard", kind == "shadow-it-ct-subdomain", kind == "dns-zone-transfer", kind == "dns-open-resolver", kind == "ntlm-info-leak":
 		return "Ownership & network"
+	case kind == "unauthenticated-datastore", kind == "snmp-default-creds", kind == "waf-origin-bypass":
+		return "Exposed services & software"
+	case kind == "orphaned-load-balancer", kind == "exposed-function-url":
+		return "Take-over & cloud storage"
 	case kind == "exposed-service", kind == "known-vuln", kind == "eol-software", kind == "ip-flagged":
 		return "Exposed services & software"
 	case kind == "asn-unexpected", kind == "private-ip":
