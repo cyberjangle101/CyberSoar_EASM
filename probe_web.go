@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"time"
 
 	"golang.org/x/net/publicsuffix"
 )
@@ -306,18 +305,14 @@ func (s *Scanner) mtaSTSProblem(ctx context.Context, root string) (problem strin
 // ---- EASM-TLS-011: the certificate a server shows without SNI
 
 // defaultCertNames returns the names on the certificate an address presents to a client that
-// does not say which site it wants.
+// does not say which site it wants. It uses the prober's one handshake (an empty host name
+// sends no SNI), so this check adds no TLS configuration of its own.
 func (p *Prober) defaultCertNames(ctx context.Context, ip string, port int) ([]string, error) {
-	raw, err := p.dialer().DialContext(ctx, "tcp", p.addr(ip, port))
+	c, err := p.handshake(ctx, "", ip, port, tls.VersionTLS12, tls.VersionTLS13)
 	if err != nil {
 		return nil, err
 	}
-	c := tls.Client(raw, &tls.Config{InsecureSkipVerify: true, MinVersion: tls.VersionTLS10}) //nolint:gosec // only the names on the certificate are read // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.bypass-tls-verification.bypass-tls-verification, problem-based-packs.insecure-transport.go-stdlib.disallow-old-tls-versions.disallow-old-tls-versions -- no SNI and no verification on purpose: this reads the server's default certificate
 	defer func() { _ = c.Close() }()
-	_ = c.SetDeadline(time.Now().Add(p.cfg.Timeout))
-	if err := c.HandshakeContext(ctx); err != nil {
-		return nil, err
-	}
 	st := c.ConnectionState()
 	if len(st.PeerCertificates) == 0 {
 		return nil, nil
