@@ -107,7 +107,8 @@ var schemaStmts = []string{
 var findingKinds = map[string]bool{"tls-expired": true, "tls-expiring": true, "tls-hostname": true, "tls-untrusted": true, "tls-legacy": true,
 	"default-page": true, "exposed-path": true, "no-https-redirect": true, "bucket-public": true, "bucket-takeover": true, "dangling-cname": true, "asn-unexpected": true, "private-ip": true, "email-auth": true,
 	"lookalike-domain": true, "leaked-credentials": true, "repo-exposure": true, "cloud-datastore": true,
-	"exposed-service": true, "known-vuln": true, "ip-flagged": true, "eol-software": true, "domain-expiry": true}
+	"exposed-service": true, "known-vuln": true, "ip-flagged": true, "eol-software": true, "domain-expiry": true,
+	"dangling-ns": true, "dangling-mx": true, "domain-unlocked": true, "dns-wildcard": true, "ct-unauthorized-ca": true, "shadow-it-ct-subdomain": true}
 
 func nowUTC() string { return time.Now().UTC().Format(time.RFC3339) }
 

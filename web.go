@@ -1268,7 +1268,8 @@ func (s *Server) findings(w http.ResponseWriter, r *http.Request, sess *Session)
 }
 
 var eventKinds = []string{"subdomain", "cert", "dns-a", "dns-aaaa", "dns-cname", "dns-ns", "dns-mx", "dns-txt",
-	"dangling-cname", "asn-unexpected", "private-ip", "email-auth", "dns-removed", "host-gone", "service-removed", "finding-resolved", "web-service", "related-domain", "lookalike-domain", "leaked-credentials", "repo-exposure", "cloud-service"}
+	"dangling-cname", "dangling-ns", "dangling-mx", "dns-wildcard", "domain-unlocked", "ct-unauthorized-ca", "shadow-it-ct-subdomain",
+	"asn-unexpected", "private-ip", "email-auth", "dns-removed", "host-gone", "service-removed", "finding-resolved", "web-service", "related-domain", "lookalike-domain", "leaked-credentials", "repo-exposure", "cloud-service"}
 
 // events renders the change log.
 func (s *Server) events(w http.ResponseWriter, r *http.Request, sess *Session) {

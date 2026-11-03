@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"sort"
 	"strings"
@@ -29,6 +30,10 @@ type Resolver struct {
 	next    atomic.Uint64
 	health  *HealthBoard
 	via     string
+
+	// authAddr turns a nameserver's address into where to send a direct (non-recursive)
+	// question to it; nil means port 53 on that address. Tests point it at a fake server.
+	authAddr func(ip string) string
 
 	okAnswers  atomic.Int64 // answers received (any RCODE)
 	failStreak atomic.Int64 // consecutive transport failures
@@ -307,12 +312,23 @@ func (r *Resolver) TXT(ctx context.Context, name string) (txts []string, nx bool
 
 // WildcardIPs probes random labels under root; any IPs returned reveal wildcard DNS.
 func (r *Resolver) WildcardIPs(ctx context.Context, root string) map[string]struct{} {
-	ips := map[string]struct{}{}
+	ips, _ := r.WildcardCheck(ctx, root)
+	return ips
+}
+
+// WildcardCheck is WildcardIPs that also says whether the probes were answered at all, so
+// an empty result can be told apart from lookups that failed.
+func (r *Resolver) WildcardCheck(ctx context.Context, root string) (ips map[string]struct{}, answered bool) {
+	ips = map[string]struct{}{}
 	for i := 0; i < 2; i++ {
 		name := "wc-" + randHex(6) + "-easm." + root
 		for _, t := range []uint16{dns.TypeA, dns.TypeAAAA} {
 			in, err := r.query(ctx, name, t)
-			if err != nil || in.Rcode != dns.RcodeSuccess {
+			if err != nil {
+				continue
+			}
+			answered = true
+			if in.Rcode != dns.RcodeSuccess {
 				continue
 			}
 			for _, ip := range collectRRs(in, name, t) {
@@ -320,7 +336,46 @@ func (r *Resolver) WildcardIPs(ctx context.Context, root string) map[string]stru
 			}
 		}
 	}
-	return ips
+	return ips, answered
+}
+
+// Exists says whether a name exists in DNS (any record type): false on NXDOMAIN. ok is false
+// when the lookups failed, so nothing can be concluded.
+func (r *Resolver) Exists(ctx context.Context, name string) (exists, ok bool) {
+	in, err := r.query(ctx, name, dns.TypeNS)
+	if err != nil {
+		return false, false
+	}
+	return in.Rcode != dns.RcodeNameError, true
+}
+
+// Addrs returns a name's IPv4 addresses through the configured resolvers.
+func (r *Resolver) Addrs(ctx context.Context, name string) (ips []string, nx bool, err error) {
+	in, err := r.query(ctx, name, dns.TypeA)
+	if err != nil {
+		return nil, false, err
+	}
+	if in.Rcode == dns.RcodeNameError {
+		return nil, true, nil
+	}
+	return collectRRs(in, cleanName(name), dns.TypeA), false, nil
+}
+
+// AskServer sends one non-recursive question straight to a nameserver, the way a resolver
+// talks to an authoritative server. It is rate-limited like every other query, and the
+// answer is returned whatever its RCODE (REFUSED and SERVFAIL are what callers look for).
+func (r *Resolver) AskServer(ctx context.Context, ip, name string, qtype uint16) (*dns.Msg, error) {
+	if err := r.wait(ctx); err != nil {
+		return nil, err
+	}
+	addr := net.JoinHostPort(ip, "53")
+	if r.authAddr != nil {
+		addr = r.authAddr(ip)
+	}
+	m := new(dns.Msg)
+	m.SetQuestion(dns.Fqdn(name), qtype)
+	m.RecursionDesired = false
+	return r.exchange(ctx, m, addr)
 }
 
 func (r *Resolver) viaOr() string {

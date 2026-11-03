@@ -30,6 +30,10 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 | EASM-DNS-005 | DNSSEC is not enabled | `email-auth/no-dnssec` | Passive: DNS | Low |
 | EASM-DNS-006 | Domain registration expiring | `domain-expiry` | Passive: registration data (RDAP) | High within 14 days (or expired), Medium within 30, Low within 60 |
 | EASM-DNS-007 | Name shows an unclaimed service page (subdomain takeover) | `subdomain-takeover` | Active: connects to the organisation's own servers (opt-in) | High |
+| EASM-DNS-008 | Delegated zone can be taken over (dangling NS) | `dangling-ns` | Passive: DNS | High when the nameservers' domain is not registered, or when every delegated nameserver answers REFUSED or SERVFAIL, is not authoritative for the zone or does not exist; Medium when the nameservers' domain is registered but withdrawn from DNS |
+| EASM-DNS-009 | Mail server record points at a lapsed or missing name (dangling MX) | `dangling-mx` | Passive: DNS | High when the mail server's domain is not registered, Medium when it is registered but withdrawn from DNS, Low when only the mail server name does not exist |
+| EASM-DNS-012 | Domain has no registrar transfer lock | `domain-unlocked` | Passive: registration data (RDAP) | Medium |
+| EASM-DNS-013 | Wildcard DNS answers for any name | `dns-wildcard` | Passive: DNS | Low |
 | EASM-EXP-001 | Sensitive service reachable from the internet | `exposed-service` | Third-party intelligence (needs a second source to be trusted) | High for the high-risk ports, Medium for the other risky ports (see risky ports) |
 | EASM-EXP-002 | Host associated with known vulnerabilities (CVEs) | `known-vuln` | Third-party intelligence (needs a second source to be trusted) | High with any CVE in CISA KEV, an EPSS of 50% or more, or 10 or more CVEs; otherwise Medium |
 | EASM-EXP-003 | Address flagged as compromised or malicious | `ip-flagged` | Third-party intelligence (needs a second source to be trusted) | High when Shodan tags it, Medium when only SANS ISC reports it |
@@ -60,12 +64,14 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 | EASM-TLS-007 | TLS certificate is signed with SHA-1 or MD5 | `tls-weak-signature` | Active: connects to the organisation's own servers (opt-in) | Medium |
 | EASM-TLS-008 | HTTPS site does not send HSTS | `hsts-missing` | Active: connects to the organisation's own servers (opt-in) | Low |
 | EASM-TLS-009 | HTTP does not redirect to HTTPS | `no-https-redirect` | Active: connects to the organisation's own servers (opt-in) | Low |
+| EASM-TLS-012 | Certificate issued by an authority your CAA record does not allow | `ct-unauthorized-ca` | Passive: public sources (OSINT) | High |
+| EASM-TLS-013 | New host appeared in Certificate Transparency and is live | `shadow-it-ct-subdomain` | Passive: public sources (OSINT) | Medium when the active web check reached a web service on it, otherwise Low |
 | EASM-WEB-001 | Login portal or admin console is public | `login-portal` | Active: connects to the organisation's own servers (opt-in) | Per product (see login portals): High for infrastructure consoles, Medium for remote-access gateways, webmail/SSO and monitoring or collaboration tools, Low for website sign-ins |
 | EASM-WEB-002 | Sensitive file or page is publicly readable | `exposed-path` | Active: connects to the organisation's own servers (opt-in) | Per file: High, Medium or Low (see sensitive files) |
 | EASM-WEB-003 | Default web server page is public | `default-page` | Active: connects to the organisation's own servers (opt-in) | Low |
 | EASM-WEB-004 | No security.txt on the main site | `no-security-txt` | Active: connects to the organisation's own servers (opt-in) | Low |
 
-47 rules.
+53 rules.
 
 ## DNS and domain
 
@@ -138,6 +144,46 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 * **Evidence:** Active check: the home page matched a can-i-take-over-xyz fingerprint for the service the CNAME points at
 * **Why it matters:** The name still points at a hosting or SaaS service, but nothing is set up there any more and the service says so. Anyone can create a resource with that name and publish their own content (phishing, malware, cookie theft) on your domain.
 * **What to do:** Delete the DNS record if the service is retired, or claim the name again at the provider in your own account. Check other records that point at the same provider.
+
+### EASM-DNS-008: Delegated zone can be taken over (dangling NS)
+
+* **Finding type:** `dangling-ns`
+* **Collection:** Passive: DNS
+* **Triggered when:** A zone is delegated (NS records, read from the domain's own nameservers when resolvers return SERVFAIL) to nameservers whose domain has no DNS delegation (NXDOMAIN; RDAP tells unregistered from on hold), or none of which serves the zone when asked directly for its SOA.
+* **Severity:** High when the nameservers' domain is not registered, or when every delegated nameserver answers REFUSED or SERVFAIL, is not authoritative for the zone or does not exist; Medium when the nameservers' domain is registered but withdrawn from DNS
+* **Evidence:** DNS: the zone's delegation read from your own nameservers, a direct question to each delegated nameserver, and whether the nameservers' domain is registered (with RDAP where enabled)
+* **Why it matters:** Part of your domain is handed to nameservers that either no longer serve it or sit on a domain anyone can register. Whoever registers that domain, or creates the zone at the DNS provider, controls every record under the name: web sites, mail and certificates.
+* **What to do:** If the zone is still used, set it up again at the DNS provider (or renew the nameservers' domain). If it is not, remove the NS records for it from your zone. Then check that nothing was published there in the meantime.
+
+### EASM-DNS-009: Mail server record points at a lapsed or missing name (dangling MX)
+
+* **Finding type:** `dangling-mx`
+* **Collection:** Passive: DNS
+* **Triggered when:** An MX record points at a mail server whose domain has no DNS delegation (NXDOMAIN; RDAP tells unregistered from on hold), or at a name that does not exist.
+* **Severity:** High when the mail server's domain is not registered, Medium when it is registered but withdrawn from DNS, Low when only the mail server name does not exist
+* **Evidence:** DNS: the MX records, whether each mail server name exists, and whether its domain is registered (with RDAP where enabled)
+* **Why it matters:** When the mail server's domain is not registered, anyone can register it and receive the mail sent to this name, including password resets. When the name merely does not exist, mail cannot be delivered and the record is a leftover from a service that was given up.
+* **What to do:** Point the MX record at your current mail service, or remove it. If the name should not receive mail at all, publish a null MX (0 .).
+
+### EASM-DNS-012: Domain has no registrar transfer lock
+
+* **Finding type:** `domain-unlocked`
+* **Collection:** Passive: registration data (RDAP)
+* **Triggered when:** The RDAP status list of a generic top-level domain (not two-letter country codes, many of which do not use these statuses) has neither clientTransferProhibited nor serverTransferProhibited.
+* **Severity:** Medium
+* **Evidence:** Registration data (RDAP status)
+* **Why it matters:** Without clientTransferProhibited (or a registry lock), a domain can be moved to another registrar by anyone who gets into the registrar account or talks support into it. Losing the domain loses its web sites and mail.
+* **What to do:** Turn on the transfer lock in your registrar account (often called domain lock or transfer protection). For critical domains, ask the registrar about registry lock (serverTransferProhibited), which needs an out-of-band confirmation to change.
+
+### EASM-DNS-013: Wildcard DNS answers for any name
+
+* **Finding type:** `dns-wildcard`
+* **Collection:** Passive: DNS
+* **Triggered when:** Randomly generated names under the domain resolve to addresses (wildcard DNS).
+* **Severity:** Low
+* **Evidence:** DNS: randomly generated names under the domain were looked up
+* **Why it matters:** Every name under the domain resolves, even ones that were never created. Forgotten names never stop resolving, so dangling records are hidden, mistyped or invented links reach your server, and asset counts are inflated.
+* **What to do:** Remove the wildcard record unless a service needs it. If it is needed, make sure the server it points at answers unknown names with an error rather than content.
 
 ## Email authentication
 
@@ -392,6 +438,26 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 * **Evidence:** Active check: a request to port 80 compared with port 443
 * **Why it matters:** Visitors who type the address or follow an old link stay on unencrypted HTTP, where anyone on the network can read or change what they see.
 * **What to do:** Redirect all HTTP requests to HTTPS (a 301) and enable HSTS once HTTPS works everywhere.
+
+### EASM-TLS-012: Certificate issued by an authority your CAA record does not allow
+
+* **Finding type:** `ct-unauthorized-ca`
+* **Collection:** Passive: public sources (OSINT)
+* **Triggered when:** A certificate in Certificate Transparency, issued in the last 30 days and still valid, comes from an authority (recognised from its issuer name, see CAA authorities) that the CAA records governing one of its names do not allow (issuewild for wildcard names). Names with no CAA record up to the domain are not checked.
+* **Severity:** High
+* **Evidence:** Certificate Transparency logs compared with the CAA records that govern each name
+* **Why it matters:** A publicly trusted certificate exists for your name from an authority you did not authorise. It may have been obtained by an attacker who controls part of your DNS or web traffic, by a team using an unapproved provider, or the CAA record may have changed after issuance.
+* **What to do:** Find out who requested it (the crt.sh entry shows the details). If nobody in your organisation did, ask the authority to revoke it and look for how it was obtained. If it was legitimate, add that authority to the CAA record or move the service to an approved one, then accept the risk.
+
+### EASM-TLS-013: New host appeared in Certificate Transparency and is live
+
+* **Finding type:** `shadow-it-ct-subdomain`
+* **Collection:** Passive: public sources (OSINT)
+* **Triggered when:** After the baseline scan, a host name first listed by Certificate Transparency (crt.sh or CertSpotter) resolves to an address that is not a wildcard answer.
+* **Severity:** Medium when the active web check reached a web service on it, otherwise Low
+* **Evidence:** Certificate Transparency logs (crt.sh, CertSpotter), DNS, and the active web check where enabled
+* **Why it matters:** A certificate was issued for a name nobody had seen before, and the name is live. That is someone publishing a new service under your domain, which may not have been reviewed for security or may not be yours at all.
+* **What to do:** Find the owner of the new service and confirm it is approved and maintained. If it is not wanted, remove its DNS records. Once reviewed, acknowledge the finding.
 
 ## Web exposure
 
@@ -747,6 +813,50 @@ Other open ports are recorded in the inventory but are not findings.
 A dangling CNAME to one of these is High, because anyone can claim the unused name there:
 
 `agilecrm.com`, `azure-api.net`, `azurecontainer.io`, `azureedge.net`, `azurehdinsight.net`, `azurewebsites.net`, `bitbucket.io`, `blob.core.windows.net`, `cargocollective.com`, `cloudapp.azure.com`, `cloudapp.net`, `cloudfront.net`, `elasticbeanstalk.com`, `fastly.net`, `furyns.com`, `ghost.io`, `github.io`, `helpjuice.com`, `helpscoutdocs.com`, `herokuapp.com`, `herokudns.com`, `launchrock.com`, `myjetbrains.com`, `netlify.app`, `ngrok.io`, `pantheonsite.io`, `readme.io`, `s3-website`, `s3.amazonaws.com`, `servicebus.windows.net`, `smartjobboard.com`, `stats.pingdom.com`, `stats.uptimerobot.com`, `statuspage.io`, `surge.sh`, `trafficmanager.net`, `unbouncepages.com`, `vercel.app`, `wordpress.com`, `zendesk.com`
+
+### DNS providers where anyone can create a zone (EASM-DNS-008)
+
+A lame delegation to one of these is named in the finding, because the zone can be created there by anyone:
+
+| Nameserver name contains | Provider |
+|---|---|
+| `.awsdns-` | Amazon Route 53 |
+| `.azure-dns.` | Azure DNS |
+| `.digitalocean.com` | DigitalOcean |
+| `.googledomains.com` | Google Cloud DNS |
+| `ns-cloud-` | Google Cloud DNS |
+| `.linode.com` | Linode |
+| `.dnsmadeeasy.com` | DNS Made Easy |
+| `.dnsimple.com` | DNSimple |
+| `.ns1.com` | NS1 |
+| `.nsone.net` | NS1 |
+| `.vultr.com` | Vultr |
+| `.hetzner.com` | Hetzner |
+| `.domaincontrol.com` | GoDaddy |
+| `.cloudflare.com` | Cloudflare |
+
+### CAA authorities (EASM-TLS-012)
+
+A certificate is compared with CAA only when its issuer is recognised here; other issuers are never reported.
+
+| Issuer name contains | Allowed by CAA identifiers |
+|---|---|
+| let's encrypt, isrg | `letsencrypt.org` |
+| zerossl | `sectigo.com`, `zerossl.com` |
+| sectigo, comodo, usertrust | `sectigo.com`, `comodoca.com`, `comodo.com`, `usertrust.com`, `trust-provider.com` |
+| digicert, thawte, geotrust, rapidssl, symantec, encryption everywhere | `digicert.com`, `symantec.com`, `thawte.com`, `geotrust.com`, `rapidssl.com`, `digitalcertvalidation.com` |
+| globalsign | `globalsign.com` |
+| amazon | `amazon.com`, `amazontrust.com`, `awstrust.com`, `amazonaws.com` |
+| google trust services | `pki.goog`, `google.com` |
+| godaddy, starfield | `godaddy.com`, `starfieldtech.com` |
+| entrust, affirmtrust | `entrust.net`, `affirmtrust.com` |
+| ssl corporation, ssl.com | `ssl.com` |
+| buypass | `buypass.com`, `buypass.no` |
+| certum, asseco, unizeto | `certum.pl`, `certum.eu` |
+| identrust | `identrust.com` |
+| harica, hellenic academic | `harica.gr` |
+| microsoft | `microsoft.com`, `digicert.com` |
+| apple | `apple.com` |
 
 ### Managed datastores (EASM-CLOUD-003)
 

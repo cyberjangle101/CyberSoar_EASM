@@ -4,6 +4,17 @@ What changed in each release of EASM Agent, newest first. Releases and their sig
 
 ## 1.9
 
+**v1.9.16 (six new DNS and certificate rules):**
+
+All six are passive: they use DNS, registration data and Certificate Transparency, which the scan already reads, plus one direct question to a delegated zone's nameservers, as any resolver asks. Each is listed in [docs/RULES.md](docs/RULES.md).
+
+* **EASM-DNS-008 Delegated zone can be taken over (dangling NS), High.** A part of your domain is delegated to nameservers that either no longer serve it, which matters most on providers such as Route 53 or Azure DNS where anyone can create the zone, or that sit on a domain that is not registered. When resolvers only answer SERVFAIL, the delegation is read from your own nameservers. A nameserver domain that is registered but withdrawn from DNS (on hold) is Medium.
+* **EASM-DNS-009 Mail server on a lapsed or missing name (dangling MX).** High when the mail server's domain is not registered, so anyone could register it and receive your mail; Medium when it is on hold; Low when the mail server name simply does not exist.
+* **EASM-DNS-012 No registrar transfer lock, Medium.** RDAP shows neither clientTransferProhibited nor serverTransferProhibited. Two-letter country domains are skipped, because many of their registries do not use these statuses.
+* **EASM-DNS-013 Wildcard DNS, Low.** The scan already detected wildcards to avoid false results; it now reports them, because they hide dangling names.
+* **EASM-TLS-012 Certificate from an authority your CAA record does not allow, High.** Certificates issued in the last 30 days are compared with the CAA records that govern each name, including a subdomain's own CAA and issuewild for wildcard names. Only issuers the agent recognises are compared, so an unknown authority never causes a false alarm. These findings stay open until you review them.
+* **EASM-TLS-013 New host appeared in Certificate Transparency and is live.** After the baseline, a name first seen in CT that resolves is Low, or Medium when the active web check reaches a service on it. It stays open until reviewed, or until the host goes away.
+
 **v1.9.15 (syslog over TLS, on your own network only):**
 
 * **Syslog / SIEM channels can use TLS** (RFC 5425, usually port 6514), and new channels offer it first. The collector's certificate is checked against the system's trusted authorities plus an internal CA you can paste in. Switching the check off is possible but marked as not recommended. The 1.6 notes said TLS was already supported; it was not, and that entry is corrected.

@@ -33,11 +33,12 @@ import (
 // ---------------------------------------------------------------- fake DNS (also serves Team Cymru data)
 
 type fakeDNS struct {
-	mu       sync.Mutex
-	servfail bool
-	rrs      map[string][]dns.RR
-	srv      *dns.Server
-	addr     string
+	mu        sync.Mutex
+	servfail  bool
+	refuseSOA map[string]bool // zones whose SOA question is answered REFUSED (a lame delegation)
+	rrs       map[string][]dns.RR
+	srv       *dns.Server
+	addr      string
 }
 
 func newFakeDNS(t testing.TB) *fakeDNS {
@@ -64,6 +65,8 @@ func (f *fakeDNS) serve(w dns.ResponseWriter, r *dns.Msg) {
 		f.mu.Lock()
 		if f.servfail {
 			m.Rcode = dns.RcodeServerFailure
+		} else if q.Qtype == dns.TypeSOA && f.refuseSOA[strings.ToLower(q.Name)] {
+			m.Rcode, m.Authoritative = dns.RcodeRefused, false
 		} else {
 			f.answer(m, strings.ToLower(q.Name), q.Qtype, 0)
 		}
@@ -490,6 +493,7 @@ func newHarness(t testing.TB) *harness {
 	h.eng.updateEvery = 0         // so would the daily update check
 	h.eng.feeds.urls = feedURLs{} // and so would the reference feeds
 	h.eng.newScanner = func(cfg *Config, res *Resolver) *Scanner {
+		res.authAddr = func(string) string { return h.dns.addr } // nameservers are asked directly; the fake answers for all of them
 		sc := NewScanner(cfg, log, store, res)
 		sc.disc.urls = h.src.urls()
 		sc.enr.urls = h.intel.urls()

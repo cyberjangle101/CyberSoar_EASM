@@ -11,6 +11,42 @@ type FindingInfo struct {
 }
 
 var findingCatalog = map[string]FindingInfo{
+	"dangling-ns": {
+		Title:    "Delegated zone can be taken over (dangling NS)",
+		Source:   "DNS: the zone's delegation read from your own nameservers, a direct question to each delegated nameserver, and whether the nameservers' domain is registered (with RDAP where enabled)",
+		Risk:     "Part of your domain is handed to nameservers that either no longer serve it or sit on a domain anyone can register. Whoever registers that domain, or creates the zone at the DNS provider, controls every record under the name: web sites, mail and certificates.",
+		Solution: "If the zone is still used, set it up again at the DNS provider (or renew the nameservers' domain). If it is not, remove the NS records for it from your zone. Then check that nothing was published there in the meantime.",
+	},
+	"dangling-mx": {
+		Title:    "Mail server record points at a lapsed or missing name (dangling MX)",
+		Source:   "DNS: the MX records, whether each mail server name exists, and whether its domain is registered (with RDAP where enabled)",
+		Risk:     "When the mail server's domain is not registered, anyone can register it and receive the mail sent to this name, including password resets. When the name merely does not exist, mail cannot be delivered and the record is a leftover from a service that was given up.",
+		Solution: "Point the MX record at your current mail service, or remove it. If the name should not receive mail at all, publish a null MX (0 .).",
+	},
+	"domain-unlocked": {
+		Title:    "Domain has no registrar transfer lock",
+		Source:   "Registration data (RDAP status)",
+		Risk:     "Without clientTransferProhibited (or a registry lock), a domain can be moved to another registrar by anyone who gets into the registrar account or talks support into it. Losing the domain loses its web sites and mail.",
+		Solution: "Turn on the transfer lock in your registrar account (often called domain lock or transfer protection). For critical domains, ask the registrar about registry lock (serverTransferProhibited), which needs an out-of-band confirmation to change.",
+	},
+	"dns-wildcard": {
+		Title:    "Wildcard DNS answers for any name",
+		Source:   "DNS: randomly generated names under the domain were looked up",
+		Risk:     "Every name under the domain resolves, even ones that were never created. Forgotten names never stop resolving, so dangling records are hidden, mistyped or invented links reach your server, and asset counts are inflated.",
+		Solution: "Remove the wildcard record unless a service needs it. If it is needed, make sure the server it points at answers unknown names with an error rather than content.",
+	},
+	"ct-unauthorized-ca": {
+		Title:    "Certificate issued by an authority your CAA record does not allow",
+		Source:   "Certificate Transparency logs compared with the CAA records that govern each name",
+		Risk:     "A publicly trusted certificate exists for your name from an authority you did not authorise. It may have been obtained by an attacker who controls part of your DNS or web traffic, by a team using an unapproved provider, or the CAA record may have changed after issuance.",
+		Solution: "Find out who requested it (the crt.sh entry shows the details). If nobody in your organisation did, ask the authority to revoke it and look for how it was obtained. If it was legitimate, add that authority to the CAA record or move the service to an approved one, then accept the risk.",
+	},
+	"shadow-it-ct-subdomain": {
+		Title:    "New host appeared in Certificate Transparency and is live",
+		Source:   "Certificate Transparency logs (crt.sh, CertSpotter), DNS, and the active web check where enabled",
+		Risk:     "A certificate was issued for a name nobody had seen before, and the name is live. That is someone publishing a new service under your domain, which may not have been reviewed for security or may not be yours at all.",
+		Solution: "Find the owner of the new service and confirm it is approved and maintained. If it is not wanted, remove its DNS records. Once reviewed, acknowledge the finding.",
+	},
 	"lookalike-domain": {
 		Title:    "A look-alike of your domain is registered",
 		Source:   "DNS: a variation of your domain name (a typo, a similar-looking character, another ending) is registered by someone else and accepts email or has a web address. Parked or for-sale names and your own registrations are left out.",
