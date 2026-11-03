@@ -4,6 +4,13 @@ What changed in each release of EASM Agent, newest first. Releases and their sig
 
 ## 1.9
 
+**v1.9.17 (new look, light and dark mode, search, AI assistants over MCP):**
+
+* **New look.** The menu is now down the left-hand side, grouped into Monitor, Reporting, System and Administration, with your account in the top bar. Colours are coded by meaning across the interface: severities, finding status (open red, accepted amber, resolved green) and asset types each have their own colour. On a phone, the menu slides in from the left.
+* **Light and dark mode.** The interface follows your computer's setting until you choose with the moon/sun button in the top bar. The choice is remembered by your browser.
+* **Search everything.** The search box at the top of every page looks through monitored domains, findings (any status) and the asset inventory at once. Press `/` to jump to it.
+* **Connect an AI assistant (MCP).** Claude, or any other assistant that speaks the Model Context Protocol, can read findings, assets and recent changes through `/mcp` using an API token. A Viewer token is read-only; an Analyst token can also queue a rescan of a domain that is already monitored. Nothing an assistant does can add a domain or change a finding. Every connection is audited. Read [docs/MCP.md](docs/MCP.md) before you turn it on: it covers where your data goes and the prompt-injection risk.
+
 **v1.9.16 (twenty-eight new rules: DNS, certificates, web applications, network services, threat intelligence):**
 
 Every rule is listed in [docs/RULES.md](docs/RULES.md).

@@ -150,7 +150,7 @@ func NewServer(store *Store, eng *Engine, log *slog.Logger, boot *Bootstrap) (*S
 		},
 	}
 	s.tpl = map[string]*template.Template{}
-	pages := []string{"login", "setup", "dashboard", "guide", "targets", "target_delete", "target", "findings", "evidence", "events", "assets", "asset", "health", "report", "settings", "users", "account", "error", "moved", "audit", "ad", "channels", "login2fa", "twofactor"}
+	pages := []string{"login", "setup", "dashboard", "guide", "targets", "target_delete", "target", "findings", "evidence", "events", "assets", "asset", "health", "report", "settings", "users", "account", "error", "moved", "audit", "ad", "channels", "login2fa", "twofactor", "search"}
 	for _, p := range pages {
 		t, err := template.New(p).Funcs(funcs).ParseFS(webFS, "web/templates/layout.html", "web/templates/progress.html", "web/templates/triage.html", "web/templates/targetstable.html", "web/templates/"+p+".html")
 		if err != nil {
@@ -304,6 +304,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /audit", s.auth(permAdmin, s.auditView))
 	mux.HandleFunc("GET /audit.csv", s.auth(permAdmin, s.auditCSV))
 	mux.HandleFunc("GET /account", s.auth(permView, s.accountView))
+	mux.HandleFunc("POST /account/theme", s.auth(permView, s.themeSet))
+	mux.HandleFunc("GET /search", s.auth(permView, s.search))
 	mux.HandleFunc("POST /account/password", s.auth(permView, s.accountPassword))
 	mux.HandleFunc("GET /account/2fa", s.auth(permView, s.twoFactorView))
 	mux.HandleFunc("POST /account/2fa/enable", s.auth(permView, s.twoFactorEnable))
@@ -323,6 +325,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/export/sarif", s.api(permView, s.apiSARIF))
 	mux.HandleFunc("GET /api/v1/export/stix", s.api(permView, s.apiSTIX))
 	mux.HandleFunc("POST /api/v1/scan", s.api(permTriage, s.apiScan))
+	mux.HandleFunc("POST /mcp", s.api(permView, s.mcpPost))
+	mux.HandleFunc("/mcp", mcpOtherMethods)
 
 	return s.secureHeaders(s.hostCheck(mux))
 }
@@ -483,13 +487,18 @@ func (s *Server) flash(sess *Session, kind, text string) {
 }
 
 // render executes a page template inside the common layout.
-func (s *Server) render(w http.ResponseWriter, _ *http.Request, sess *Session, page string, status int, data map[string]any) {
+func (s *Server) render(w http.ResponseWriter, r *http.Request, sess *Session, page string, status int, data map[string]any) {
 	if data == nil {
 		data = map[string]any{}
 	}
 	data["Version"] = version
+	if r != nil {
+		data["Theme"] = themeOf(r)
+		data["Here"] = safeNext(r.URL.RequestURI(), "/")
+	}
 	if sess != nil {
 		data["User"] = sess.Username
+		data["Initial"] = initialOf(sess.Username)
 		data["IsAdmin"] = sess.Role == RoleAdmin
 		data["CanTriage"] = roleLevel(sess.Role) >= permTriage
 		data["RoleLabel"] = roleLabel(sess.Role)

@@ -5,6 +5,7 @@ import (
 	"crypto/sha1" //nolint:gosec // G505: SHA-1 is what STIX/RFC 4122 name-based (v5) UUIDs are defined to use; not a security use
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -158,7 +159,12 @@ func qInt(r *http.Request, name string, def, lo, hi int) int {
 // apiFindingsFor lists findings for ?target=&status=open|ack|all&severity=
 func (s *Server) apiFindingsFor(r *http.Request) ([]Finding, error) {
 	q := r.URL.Query()
-	status := q.Get("status")
+	return s.findingsQuery(q.Get("target"), q.Get("status"), q.Get("severity"))
+}
+
+// findingsQuery lists findings for a target ("" = all), status (open by default, or ack, resolved, all)
+// and severity floor, worst first. The API and the MCP tools share it.
+func (s *Server) findingsQuery(target, status, floor string) ([]Finding, error) {
 	switch status {
 	case "", "open":
 		status = "open"
@@ -168,11 +174,11 @@ func (s *Server) apiFindingsFor(r *http.Request) ([]Finding, error) {
 	default:
 		return nil, fmt.Errorf("status must be open, ack, resolved or all")
 	}
-	all, err := s.store.ListFindings(q.Get("target"), status)
+	all, err := s.store.ListFindings(target, status)
 	if err != nil {
 		return nil, err
 	}
-	if floor := q.Get("severity"); floor != "" {
+	if floor != "" {
 		if !validSeverity(floor) {
 			return nil, fmt.Errorf("severity must be high, medium, low or info")
 		}
@@ -243,36 +249,49 @@ func (s *Server) apiScan(w http.ResponseWriter, r *http.Request, who *apiWho) {
 		apiError(w, http.StatusBadRequest, `send JSON like {"target":"example.com"}`)
 		return
 	}
+	d, err := s.queueScan(in.Target, in.Refresh)
+	switch {
+	case errors.Is(err, errUnknownTarget):
+		apiError(w, http.StatusNotFound, "no such target")
+	case errors.Is(err, errScanBusy):
+		apiError(w, http.StatusConflict, err.Error())
+	case err != nil:
+		apiError(w, http.StatusInternalServerError, "could not queue the scan")
+	default:
+		s.auditAs(who.User.Username, who.User.Kind, r, "scan.api", d, "token "+who.Token.Name)
+		w.WriteHeader(http.StatusAccepted)
+		apiJSON(w, map[string]string{"status": "queued", "target": d})
+	}
+}
+
+var errScanBusy = errors.New("a scan is already running, or the target is paused")
+
+// queueScan asks for a scan of a monitored domain now (the API and the MCP request_scan tool).
+// It never adds a domain: anything not already monitored is errUnknownTarget.
+func (s *Server) queueScan(domain string, refresh bool) (string, error) {
 	ts, err := s.store.ListTargets()
 	if err != nil {
-		apiError(w, http.StatusInternalServerError, "could not read targets")
-		return
+		return "", err
 	}
 	for _, t := range ts {
-		if !strings.EqualFold(t.Domain, in.Target) {
+		if !strings.EqualFold(t.Domain, domain) {
 			continue
 		}
 		ok, err := s.store.RequestScan(t.ID)
-		if err == nil && ok && in.Refresh {
+		if err == nil && ok && refresh {
 			err = s.store.SetRefresh(t.Domain, true)
 		}
 		if err != nil {
-			apiError(w, http.StatusInternalServerError, "could not queue the scan")
-			return
+			return "", err
 		}
 		if !ok {
-			apiError(w, http.StatusConflict, "a scan is already running, or the target is paused")
-			return
+			return "", errScanBusy
 		}
 		s.eng.Wake()
-		s.auditAs(who.User.Username, who.User.Kind, r, "scan.api", t.Domain, "token "+who.Token.Name)
-		w.WriteHeader(http.StatusAccepted)
-		apiJSON(w, map[string]string{"status": "queued", "target": t.Domain})
-		return
+		return t.Domain, nil
 	}
-	apiError(w, http.StatusNotFound, "no such target")
+	return "", errUnknownTarget
 }
-
 func (s *Server) apiSARIF(w http.ResponseWriter, r *http.Request, _ *apiWho) {
 	fs, err := s.apiFindingsFor(r)
 	if err != nil {

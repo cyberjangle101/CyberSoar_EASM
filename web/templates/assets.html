@@ -19,7 +19,7 @@
   <div class="scroll"><table>
     <thead><tr><th>Type</th><th>Asset</th><th>Entity</th><th>Details</th><th>Source</th><th>First seen</th><th>Last seen</th></tr></thead>
     <tbody>{{range .Assets}}<tr>
-      <td><span class="badge">{{.Type}}</span></td><td class="mono"><a href="{{href "/assets/view" (printf "type=%s&id=%s" .Type (urlquery .Key))}}">{{.Value}}</a></td><td>{{.Root}}</td><td class="prose small">{{.Details}}</td><td class="small">{{.Sources}}</td><td>{{ts .FirstSeen}}</td><td>{{ts .LastSeen}}</td>
+      <td><span class="badge type-{{.Type}}">{{.Type}}</span></td><td class="mono"><a href="{{href "/assets/view" (printf "type=%s&id=%s" .Type (urlquery .Key))}}">{{.Value}}</a></td><td>{{.Root}}</td><td class="prose small">{{.Details}}</td><td class="small">{{.Sources}}</td><td>{{ts .FirstSeen}}</td><td>{{ts .LastSeen}}</td>
     </tr>{{end}}</tbody>
   </table></div>
   {{if gt .Pages 1}}<nav class="pager">
