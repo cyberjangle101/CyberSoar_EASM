@@ -55,6 +55,7 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 | EASM-MAIL-014 | DKIM key is 1024 bits | `email-auth/dkim-short-key` | Passive: DNS | Low |
 | EASM-MAIL-015 | No MTA-STS policy | `email-auth/no-mta-sts` | Passive: DNS | Low |
 | EASM-MAIL-016 | No TLS reporting address | `email-auth/no-tls-rpt` | Passive: DNS | Low |
+| EASM-MAIL-017 | MTA-STS policy is published but unusable | `email-auth/mta-sts-broken` | Active: connects to the organisation's own servers (opt-in) | Medium |
 | EASM-TLS-001 | TLS certificate has expired | `tls-expired` | Active: connects to the organisation's own servers (opt-in) | High |
 | EASM-TLS-002 | TLS certificate expires soon | `tls-expiring` | Active: connects to the organisation's own servers (opt-in) | High within 7 days, Medium within 30 |
 | EASM-TLS-003 | TLS certificate does not match the host name | `tls-hostname` | Active: connects to the organisation's own servers (opt-in) | Medium |
@@ -64,14 +65,22 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 | EASM-TLS-007 | TLS certificate is signed with SHA-1 or MD5 | `tls-weak-signature` | Active: connects to the organisation's own servers (opt-in) | Medium |
 | EASM-TLS-008 | HTTPS site does not send HSTS | `hsts-missing` | Active: connects to the organisation's own servers (opt-in) | Low |
 | EASM-TLS-009 | HTTP does not redirect to HTTPS | `no-https-redirect` | Active: connects to the organisation's own servers (opt-in) | Low |
+| EASM-TLS-011 | Default certificate reveals internal host names | `tls-sni-hostname-leak` | Active: connects to the organisation's own servers (opt-in) | Low |
 | EASM-TLS-012 | Certificate issued by an authority your CAA record does not allow | `ct-unauthorized-ca` | Passive: public sources (OSINT) | High |
 | EASM-TLS-013 | New host appeared in Certificate Transparency and is live | `shadow-it-ct-subdomain` | Passive: public sources (OSINT) | Medium when the active web check reached a web service on it, otherwise Low |
 | EASM-WEB-001 | Login portal or admin console is public | `login-portal` | Active: connects to the organisation's own servers (opt-in) | Per product (see login portals): High for infrastructure consoles, Medium for remote-access gateways, webmail/SSO and monitoring or collaboration tools, Low for website sign-ins |
 | EASM-WEB-002 | Sensitive file or page is publicly readable | `exposed-path` | Active: connects to the organisation's own servers (opt-in) | Per file: High, Medium or Low (see sensitive files) |
 | EASM-WEB-003 | Default web server page is public | `default-page` | Active: connects to the organisation's own servers (opt-in) | Low |
 | EASM-WEB-004 | No security.txt on the main site | `no-security-txt` | Active: connects to the organisation's own servers (opt-in) | Low |
+| EASM-WEB-005 | Web server directory listing is enabled | `directory-listing` | Active: connects to the organisation's own servers (opt-in) | High when the listing links to archives, dumps or backups (.zip, .tar, .sql, .bak, .dump, .db and similar), otherwise Medium |
+| EASM-WEB-006 | API documentation or GraphQL schema is public | `exposed-api-schema` | Active: connects to the organisation's own servers (opt-in) | Medium for Swagger UI and GraphQL introspection, Low for an API description file; Low on hosts named like developer or test systems (dev, test, staging, qa, uat, sandbox, docs) |
+| EASM-WEB-007 | CORS trusts any web site, with the visitor's cookies | `cors-credential-leak` | Active: connects to the organisation's own servers (opt-in) | High |
+| EASM-WEB-008 | Application runs in debug mode or announces exact versions | `debug-mode-enabled` | Active: connects to the organisation's own servers (opt-in) | Per sign (see debug signs): High for interactive debuggers and environment dumps, Medium for detailed error pages; Low for headers announcing exact versions |
+| EASM-WEB-009 | Page loads a script from a domain anyone can register | `second-order-script-takeover` | Active: connects to the organisation's own servers (opt-in) | High |
+| EASM-WEB-010 | Session cookie without Secure or HttpOnly | `insecure-auth-cookie` | Active: connects to the organisation's own servers (opt-in) | Medium on a page recognised as a login portal (EASM-WEB-001), otherwise Low |
+| EASM-WEB-011 | Baseline security headers are missing | `missing-security-headers` | Active: connects to the organisation's own servers (opt-in) | Medium when a login portal (EASM-WEB-001) can be framed (no X-Frame-Options or CSP frame-ancestors), otherwise Low |
 
-53 rules.
+62 rules.
 
 ## DNS and domain
 
@@ -347,6 +356,16 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 * **Why it matters:** Without TLS-RPT you get no reports when other mail servers fail to deliver to you securely, so downgrade attacks and certificate problems go unnoticed.
 * **What to do:** Publish a TXT record at _smtp._tls.<domain> such as "v=TLSRPTv1; rua=mailto:tls-reports@<domain>".
 
+### EASM-MAIL-017: MTA-STS policy is published but unusable
+
+* **Finding type:** `email-auth/mta-sts-broken`
+* **Collection:** Active: connects to the organisation's own servers (opt-in)
+* **Triggered when:** With active checks on and a v=STSv1 record published: mta-sts.<domain> does not exist, its HTTPS certificate is not valid, /.well-known/mta-sts.txt does not answer 200, or the file lacks version: STSv1, a valid mode, max_age, or (unless mode is none) an mx: line.
+* **Severity:** Medium
+* **Evidence:** Active check: the policy file at https://mta-sts.<domain>/.well-known/mta-sts.txt, fetched the way a sending mail server does (valid certificate required)
+* **Why it matters:** The TXT record says a policy exists, but senders cannot get a valid one, so they treat the domain as having none. Mail to you loses the protection MTA-STS was meant to give, and you may believe it is on.
+* **What to do:** Make https://mta-sts.<domain>/.well-known/mta-sts.txt answer 200 over HTTPS with a certificate valid for that name, containing version: STSv1, mode, mx: lines for your mail servers and max_age. Change the id= in the TXT record whenever the file changes.
+
 ## TLS and HTTPS
 
 ### EASM-TLS-001: TLS certificate has expired
@@ -439,6 +458,16 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 * **Why it matters:** Visitors who type the address or follow an old link stay on unencrypted HTTP, where anyone on the network can read or change what they see.
 * **What to do:** Redirect all HTTP requests to HTTPS (a 301) and enable HSTS once HTTPS works everywhere.
 
+### EASM-TLS-011: Default certificate reveals internal host names
+
+* **Finding type:** `tls-sni-hostname-leak`
+* **Collection:** Active: connects to the organisation's own servers (opt-in)
+* **Triggered when:** An address serving HTTPS on 443, asked without SNI, shows a certificate naming an internal-looking host (a single label, or a top-level domain that is not public, such as corp, local, lan or internal) or a name under the domain that the scan has not seen.
+* **Severity:** Low
+* **Evidence:** Active check: a TLS handshake with the address without a host name (no SNI)
+* **Why it matters:** The certificate a server shows to anyone who connects by IP address names internal systems or hosts you have not published. That maps your addresses to internal and cloud host names for an attacker, and points at forgotten services.
+* **What to do:** Configure the server or load balancer's default certificate to one that names nothing internal (or to refuse connections without SNI), and review the hosts named.
+
 ### EASM-TLS-012: Certificate issued by an authority your CAA record does not allow
 
 * **Finding type:** `ct-unauthorized-ca`
@@ -475,7 +504,7 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 
 * **Finding type:** `exposed-path`
 * **Collection:** Active: connects to the organisation's own servers (opt-in)
-* **Triggered when:** A well-known sensitive file or page answers 200 and its content passes the file's own test (and is not the site's catch-all page); or / shows a directory listing (Medium).
+* **Triggered when:** A well-known sensitive file or page answers 200 and its content passes the file's own test (and is not the site's catch-all page).
 * **Severity:** Per file: High, Medium or Low (see sensitive files)
 * **Evidence:** Active check: a request for a well-known path, confirmed by its content
 * **Why it matters:** Files such as .git folders, .env files, backups and status pages leak source code, passwords, API keys and internal details that let attackers go much further.
@@ -500,6 +529,76 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 * **Evidence:** Active check: a request for /.well-known/security.txt on the domain and www (HTTPS)
 * **Why it matters:** Researchers who find a vulnerability have no published way to report it (RFC 9116), so reports get lost or end up public instead.
 * **What to do:** Publish /.well-known/security.txt with at least a Contact: line (an email or form) and an Expires: date.
+
+### EASM-WEB-005: Web server directory listing is enabled
+
+* **Finding type:** `directory-listing`
+* **Collection:** Active: connects to the organisation's own servers (opt-in)
+* **Triggered when:** The home page is a web server's directory listing ("Index of /").
+* **Severity:** High when the listing links to archives, dumps or backups (.zip, .tar, .sql, .bak, .dump, .db and similar), otherwise Medium
+* **Evidence:** Active check: the home page is an automatic folder index ("Index of /")
+* **Why it matters:** Anyone can browse and download every file in the folder, including ones never linked from the site. Archives, database dumps and backups found this way often hold source code, data and passwords.
+* **What to do:** Turn off directory indexes on the web server (Apache: Options -Indexes; nginx: autoindex off; IIS: Directory Browsing off), remove files that should not be public, and put an index page in the folder.
+
+### EASM-WEB-006: API documentation or GraphQL schema is public
+
+* **Finding type:** `exposed-api-schema`
+* **Collection:** Active: connects to the organisation's own servers (opt-in)
+* **Triggered when:** With sensitive-path checks on: an OpenAPI/Swagger description or Swagger UI answers 200 (see API schema paths), or a read-only GraphQL introspection query to /graphql or /api/graphql returns the schema's types.
+* **Severity:** Medium for Swagger UI and GraphQL introspection, Low for an API description file; Low on hosts named like developer or test systems (dev, test, staging, qa, uat, sandbox, docs)
+* **Evidence:** Active check: well-known API description and Swagger UI paths, and a read-only GraphQL introspection query
+* **Why it matters:** A full map of the API, every endpoint, parameter, query and mutation, tells an attacker exactly what to try, including internal or admin operations that were never meant to be found. Swagger UI also lets anyone call the API from a browser.
+* **What to do:** If the API is not deliberately public, put its documentation behind sign-in or remove it from production, and turn off GraphQL introspection in production. If it is public on purpose, accept the risk.
+
+### EASM-WEB-007: CORS trusts any web site, with the visitor's cookies
+
+* **Finding type:** `cors-credential-leak`
+* **Collection:** Active: connects to the organisation's own servers (opt-in)
+* **Triggered when:** A request to / with Origin: https://easm-cors-check-<random>.example is answered with that exact origin in Access-Control-Allow-Origin and Access-Control-Allow-Credentials: true.
+* **Severity:** High
+* **Evidence:** Active check: a request with a made-up Origin header, looking at the Access-Control-Allow-* response headers
+* **Why it matters:** The server tells browsers that any site may read its responses on behalf of the visitor, cookies included. A malicious page a signed-in user visits can then read their data from this service.
+* **What to do:** Compare the Origin header against an allow-list of your own sites instead of echoing it back, and only send Access-Control-Allow-Credentials: true for those origins.
+
+### EASM-WEB-008: Application runs in debug mode or announces exact versions
+
+* **Finding type:** `debug-mode-enabled`
+* **Collection:** Active: connects to the organisation's own servers (opt-in)
+* **Triggered when:** X-Powered-By, X-AspNet-Version, X-AspNetMvc-Version or X-Generator carries a version number; or, with sensitive-path checks on, a made-up path or a debug endpoint shows a debugger or debug error page.
+* **Severity:** Per sign (see debug signs): High for interactive debuggers and environment dumps, Medium for detailed error pages; Low for headers announcing exact versions
+* **Evidence:** Active check: response headers, the error page for a made-up path, and well-known debug endpoints (Laravel Ignition, Symfony profiler)
+* **Why it matters:** Interactive debuggers (Werkzeug, Laravel Ignition with commands enabled) let anyone run code on the server. Debug error pages and profilers show configuration, paths, and sometimes passwords. Exact version headers tell an attacker which known vulnerabilities to try.
+* **What to do:** Switch debug mode off in production (DEBUG = False, APP_DEBUG=false, the framework's production environment), remove profilers and debug endpoints, and stop sending X-Powered-By and version headers.
+
+### EASM-WEB-009: Page loads a script from a domain anyone can register
+
+* **Finding type:** `second-order-script-takeover`
+* **Collection:** Active: connects to the organisation's own servers (opt-in)
+* **Triggered when:** The home page loads a <script src> from a domain outside the site's own whose registrable domain has no DNS delegation (NXDOMAIN; RDAP tells unregistered from on hold).
+* **Severity:** High
+* **Evidence:** Active check: the <script src> addresses on the home page, then DNS (and RDAP where enabled) for each outside domain
+* **Why it matters:** The site runs JavaScript from a domain that has lapsed. Whoever registers it serves their own script to every visitor: stealing sessions and passwords, or changing what the page shows.
+* **What to do:** Remove the script tag, or host the script yourself. Re-register the domain if it was yours, and review the site's other third-party scripts (Subresource Integrity helps for fixed files).
+
+### EASM-WEB-010: Session cookie without Secure or HttpOnly
+
+* **Finding type:** `insecure-auth-cookie`
+* **Collection:** Active: connects to the organisation's own servers (opt-in)
+* **Triggered when:** The home page sets a cookie whose name looks like a session or sign-in cookie (sess, sid, auth, token, jwt, login, remember, PHPSESSID, JSESSIONID and similar) without HttpOnly, or over HTTPS without Secure.
+* **Severity:** Medium on a page recognised as a login portal (EASM-WEB-001), otherwise Low
+* **Evidence:** Active check: the Set-Cookie headers on the home page
+* **Why it matters:** Without HttpOnly, any script injected into the page can read the session cookie and take over the account. Without Secure, the cookie is also sent over plain HTTP, where anyone on the network can read it.
+* **What to do:** Set HttpOnly and Secure (and SameSite=Lax or Strict) on session and sign-in cookies, usually a single setting in the framework or web server.
+
+### EASM-WEB-011: Baseline security headers are missing
+
+* **Finding type:** `missing-security-headers`
+* **Collection:** Active: connects to the organisation's own servers (opt-in)
+* **Triggered when:** A 2xx HTML home page lacks Content-Security-Policy, X-Frame-Options (or CSP frame-ancestors), or X-Content-Type-Options: nosniff.
+* **Severity:** Medium when a login portal (EASM-WEB-001) can be framed (no X-Frame-Options or CSP frame-ancestors), otherwise Low
+* **Evidence:** Active check: the response headers of the home page
+* **Why it matters:** Without Content-Security-Policy, an injected script runs unhindered. Without X-Frame-Options (or CSP frame-ancestors), other sites can frame the page to trick users into clicking (clickjacking), which matters most on sign-in pages. Without X-Content-Type-Options: nosniff, browsers may run files as a different type than intended.
+* **What to do:** Send Content-Security-Policy (start in report-only mode), X-Frame-Options: DENY or CSP frame-ancestors 'none', and X-Content-Type-Options: nosniff, from the web server or framework.
 
 ## Cloud and storage
 
@@ -705,7 +804,6 @@ Each path is reported only when it answers 200 and its content passes the file's
 
 | Path | Severity | What it exposes |
 |---|---|---|
-| `/` (directory listing) | Medium | directory listing is switched on, so anyone can browse and download the files in this folder |
 | `/.git/HEAD` | High | a Git repository's HEAD file is readable, so source code and secrets can be downloaded |
 | `/.git/config` | High | a Git repository's configuration is readable, so source code and secrets can be downloaded |
 | `/.env` | High | an environment file with settings and likely passwords or keys is readable |
@@ -730,10 +828,34 @@ Each path is reported only when it answers 200 and its content passes the file's
 | `/elmah.axd` | Medium | the ASP.NET error log is public and shows stack traces, and sometimes cookies and request data |
 | `/trace.axd` | Medium | ASP.NET request tracing is public and shows request details, headers and session data |
 | `/debug/pprof/` | Medium | the Go profiling endpoint is public: it reveals internals and can be used to load the server |
-| `/swagger.json` | Low | an API description is public and maps every endpoint for an attacker (fine only for a deliberately public API) |
-| `/openapi.json` | Low | an API description is public and maps every endpoint for an attacker (fine only for a deliberately public API) |
-| `/v3/api-docs` | Low | an API description is public and maps every endpoint for an attacker (fine only for a deliberately public API) |
 | `/crossdomain.xml` | Low | the Flash/Silverlight cross-domain policy allows any site to read responses as the visitor |
+
+### API schema paths (EASM-WEB-006)
+
+On hosts named like developer or test systems every one of these is Low.
+
+| Path | Severity | What it exposes |
+|---|---|---|
+| `/swagger.json` | Low | an API description is public and maps every endpoint for an attacker |
+| `/openapi.json` | Low | an API description is public and maps every endpoint for an attacker |
+| `/v3/api-docs` | Low | an API description is public and maps every endpoint for an attacker |
+| `/swagger-ui.html` | Medium | Swagger UI is public, so anyone can browse and call the API from the browser |
+| `/swagger-ui/` | Medium | Swagger UI is public, so anyone can browse and call the API from the browser |
+| `/api-docs/` | Medium | Swagger UI is public, so anyone can browse and call the API from the browser |
+| `/graphql`, `/api/graphql` (POST of a read-only introspection query) | Medium | GraphQL introspection is enabled, so anyone can download the full schema |
+
+### Debug signs (EASM-WEB-008)
+
+A path of "(made-up path)" means the error page for a page that does not exist.
+
+| Path | Recognised by | Severity | What it means |
+|---|---|---|---|
+| `(made-up path)` | `Werkzeug Debugger` | High | the Werkzeug interactive debugger is switched on; anyone who reaches it can run code on the server |
+| `(made-up path)` | `<code>DEBUG = True</code>` | High | the Django debug error page is switched on and shows settings, paths and request data |
+| `(made-up path)` | `Whoops! There was an error.` | High | the Whoops debug error page is switched on and shows the environment and source code |
+| `(made-up path)` | `Server Error in '/' Application` | Medium | the ASP.NET detailed error page is shown, with a stack trace and versions |
+| `/_ignition/health-check` | `"can_execute_commands":true` | High | Laravel Ignition is reachable with debug commands enabled, which has allowed remote code execution (CVE-2021-3129) |
+| `/_profiler/` | `Symfony Profiler` | High | the Symfony profiler is public and shows every request, with headers, cookies and configuration |
 
 ### Default pages (EASM-WEB-003)
 

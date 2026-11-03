@@ -207,6 +207,15 @@ func (s *Scanner) emailPosture(ctx context.Context, root string, hosts []string,
 		if txts, _, err := s.res.TXT(ctx, "_mta-sts."+root); err == nil {
 			if !hasPrefixRecord(txts, "v=stsv1") {
 				m.add(root, "no-mta-sts", "low", fmt.Sprintf("%s receives mail but publishes no MTA-STS policy, so a network attacker can downgrade the encryption of mail sent to it", root))
+			} else if s.cfg.Active.Enabled {
+				// EASM-MAIL-017: the record promises a policy; senders fetch it from mta-sts.<domain>.
+				if problem, ok := s.mtaSTSProblem(ctx, root); ok {
+					if problem != "" {
+						m.add(root, "mta-sts-broken", "medium", fmt.Sprintf("%s publishes an MTA-STS record, but its policy at https://mta-sts.%s/.well-known/mta-sts.txt is unusable: %s. "+
+							"Sending servers then cannot apply the policy, so mail to %s gets no protection from it", root, root, problem, root))
+					}
+					m.did(root, "mta-sts-broken")
+				}
 			}
 			m.did(root, "no-mta-sts")
 		}

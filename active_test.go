@@ -225,7 +225,7 @@ func TestActiveChecksFindProblems(t *testing.T) {
 	want := []struct{ kind, host string }{
 		{"tls-expired", "old.example.test"}, {"tls-expiring", "soon.example.test"}, {"tls-hostname", "wrong.example.test"},
 		{"tls-untrusted", "self.example.test"}, {"tls-legacy", "legacy.example.test"}, {"no-https-redirect", "plain.example.test"},
-		{"default-page", "dev.example.test"}, {"exposed-path", "/.git/HEAD"}, {"exposed-path", "/.env"}, {"exposed-path", "idx.example.test"},
+		{"default-page", "dev.example.test"}, {"exposed-path", "/.git/HEAD"}, {"exposed-path", "/.env"}, {"directory-listing", "idx.example.test"},
 	}
 	for _, w := range want {
 		if l.findingFor(w.kind, w.host) == nil {

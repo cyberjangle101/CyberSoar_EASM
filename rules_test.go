@@ -93,6 +93,11 @@ func TestSensitiveFileTests(t *testing.T) {
 				return p.Test
 			}
 		}
+		for _, p := range schemaPaths { // API descriptions moved to EASM-WEB-006
+			if p.Path == path {
+				return p.Test
+			}
+		}
 		t.Fatalf("no sensitive path %s", path)
 		return nil
 	}
