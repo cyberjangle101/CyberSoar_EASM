@@ -1528,6 +1528,7 @@ func parseSettingsForm(r *http.Request, cur Settings) (Settings, error) {
 	s.CensysEnabled, s.CensysOrgID, s.VirusTotalEnabled = on("censys_enabled"), str("censys_org_id"), on("virustotal_enabled")
 	s.HIBPEnabled, s.GitHubEnabled = on("hibp_enabled"), on("github_enabled")
 	s.LookalikeEnabled, s.RelatedEnabled, s.ReverseIPEnabled = on("lookalike_enabled"), on("related_enabled"), on("reverseip_enabled")
+	s.LookalikeProbe, s.DependencyConfusion, s.DNSBLEnabled = on("lookalike_probe"), on("dependency_confusion"), on("dnsbl_enabled")
 	if err := s.Normalize(); err != nil {
 		return cur, err
 	}
@@ -1683,6 +1684,9 @@ var threatIntelChecks = []struct {
 	on          func(Settings) bool
 }{
 	{"look-alike domains", "lookalike-domain", func(s Settings) bool { return s.LookalikeEnabled }},
+	{"certificates on look-alikes", "lookalike-tls-issued", func(s Settings) bool { return s.LookalikeEnabled }},
+	{"look-alike site clones", "phishing-clone", func(s Settings) bool { return s.LookalikeEnabled && s.LookalikeProbe }},
+	{"dependency confusion", "dependency-confusion", func(s Settings) bool { return s.DependencyConfusion }},
 	{"public code", "repo-exposure", func(s Settings) bool { return s.GitHubEnabled }},
 	{"leaked accounts", "leaked-credentials", func(s Settings) bool { return s.HIBPEnabled }},
 }

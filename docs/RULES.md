@@ -20,6 +20,9 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 | EASM-BRAND-001 | A look-alike of your domain is registered | `lookalike-domain` | Passive: public sources (OSINT) | Medium when it accepts email (MX), otherwise Low |
 | EASM-BRAND-002 | Accounts at your domain appear in a data breach | `leaked-credentials` | Passive: public sources (OSINT) | High for 5 or more accounts in one breach, otherwise Medium |
 | EASM-BRAND-003 | Public code mentions your domain next to secret-like words | `repo-exposure` | Passive: public sources (OSINT) | Medium |
+| EASM-BRAND-004 | Look-alike site copies yours | `phishing-clone` | Active: visits look-alike sites (separate switch, off by default) | High when the look-alike serves the same favicon (Shodan's MurmurHash3 hash) or a password field on a page with your title or name, Medium when only the page title matches |
+| EASM-BRAND-005 | New certificate issued for a look-alike domain | `lookalike-tls-issued` | Passive: public sources (OSINT) | High (every reported look-alike accepts email or has a web address, see EASM-BRAND-001) |
+| EASM-BRAND-006 | Internal package name could be published by anyone | `dependency-confusion` | Active: the organisation's own web services, then npm and PyPI (separate switch, off by default) | High when the name does not exist on npm or PyPI; Medium for a scoped npm name (@scope/name), which is only claimable if the scope is not registered |
 | EASM-CLOUD-001 | Cloud storage bucket can be listed by anyone | `bucket-public` | Active: connects to the organisation's own servers (opt-in) | High |
 | EASM-CLOUD-002 | Name points to a storage bucket that does not exist | `bucket-takeover` | Active: connects to the organisation's own servers (opt-in) | High |
 | EASM-CLOUD-003 | Managed database or cache named in public DNS | `cloud-datastore` | Passive: DNS | Medium |
@@ -64,6 +67,7 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 | EASM-MAIL-015 | No MTA-STS policy | `email-auth/no-mta-sts` | Passive: DNS | Low |
 | EASM-MAIL-016 | No TLS reporting address | `email-auth/no-tls-rpt` | Passive: DNS | Low |
 | EASM-MAIL-017 | MTA-STS policy is published but unusable | `email-auth/mta-sts-broken` | Active: connects to the organisation's own servers (opt-in) | Medium |
+| EASM-MAIL-018 | Mail or web address is on a spam blocklist | `email-auth/dnsbl-listed` | Passive: DNS | High when a mail address (an MX server or a single SPF ip4: entry) is listed, Medium when only the domain's or www's web address is |
 | EASM-TLS-001 | TLS certificate has expired | `tls-expired` | Active: connects to the organisation's own servers (opt-in) | High |
 | EASM-TLS-002 | TLS certificate expires soon | `tls-expiring` | Active: connects to the organisation's own servers (opt-in) | High within 7 days, Medium within 30 |
 | EASM-TLS-003 | TLS certificate does not match the host name | `tls-hostname` | Active: connects to the organisation's own servers (opt-in) | Medium |
@@ -89,7 +93,7 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 | EASM-WEB-010 | Session cookie without Secure or HttpOnly | `insecure-auth-cookie` | Active: connects to the organisation's own servers (opt-in) | Medium on a page recognised as a login portal (EASM-WEB-001), otherwise Low |
 | EASM-WEB-011 | Baseline security headers are missing | `missing-security-headers` | Active: connects to the organisation's own servers (opt-in) | Medium when a login portal (EASM-WEB-001) can be framed (no X-Frame-Options or CSP frame-ancestors), otherwise Low |
 
-71 rules.
+75 rules.
 
 ## DNS and domain
 
@@ -394,6 +398,16 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 * **Evidence:** Active check: the policy file at https://mta-sts.<domain>/.well-known/mta-sts.txt, fetched the way a sending mail server does (valid certificate required)
 * **Why it matters:** The TXT record says a policy exists, but senders cannot get a valid one, so they treat the domain as having none. Mail to you loses the protection MTA-STS was meant to give, and you may believe it is on.
 * **What to do:** Make https://mta-sts.<domain>/.well-known/mta-sts.txt answer 200 over HTTPS with a certificate valid for that name, containing version: STSv1, mode, mx: lines for your mail servers and max_age. Change the id= in the TXT record whenever the file changes.
+
+### EASM-MAIL-018: Mail or web address is on a spam blocklist
+
+* **Finding type:** `email-auth/dnsbl-listed`
+* **Collection:** Passive: DNS
+* **Triggered when:** With spam blocklists switched on (off by default): an IPv4 address of the domain's mail servers, SPF entries, domain or www is listed on a blocklist (see spam blocklists): the lookup returns 127.0.0.x.
+* **Severity:** High when a mail address (an MX server or a single SPF ip4: entry) is listed, Medium when only the domain's or www's web address is
+* **Evidence:** DNS blocklist lookups (SpamCop, PSBL) for the addresses of your mail servers, SPF entries, domain and www
+* **Why it matters:** Mail from a listed address is rejected or filed as spam by many receivers. A listing usually means the address sent spam, often because the server or an account on it was compromised.
+* **What to do:** Find out why it was listed (the list's lookup page explains), fix the cause, such as a compromised account, an open relay or a hacked web form, then request removal from each list.
 
 ## TLS and HTTPS
 
@@ -815,6 +829,36 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 * **Why it matters:** A public repository contains your domain name close to words such as password, secret or token. It may hold real credentials, internal addresses or configuration that helps an attacker. It is also often harmless, such as documentation or an example.
 * **What to do:** Open the listed files. If they hold real secrets, change those secrets immediately (removing the file is not enough, because history is kept), then ask the owner or GitHub to take the repository down. If it is harmless, accept the risk with a note.
 
+### EASM-BRAND-004: Look-alike site copies yours
+
+* **Finding type:** `phishing-clone`
+* **Collection:** Active: visits look-alike sites (separate switch, off by default)
+* **Triggered when:** For each reported look-alike with a web address: its home page and /favicon.ico (HTTPS, then HTTP) are compared with those of the domain or www.
+* **Severity:** High when the look-alike serves the same favicon (Shodan's MurmurHash3 hash) or a password field on a page with your title or name, Medium when only the page title matches
+* **Evidence:** A visit to the look-alike's home page and icon, compared with your own site (optional, off by default)
+* **Why it matters:** A domain that resembles yours serves your site icon, your page title, or a sign-in form under your name. That is the shape of a phishing site aimed at your staff or customers.
+* **What to do:** Collect evidence (screenshots, the crt.sh entry), report the site to the registrar, the hosting provider and services such as Google Safe Browsing, block it in your filters, and warn the people it targets.
+
+### EASM-BRAND-005: New certificate issued for a look-alike domain
+
+* **Finding type:** `lookalike-tls-issued`
+* **Collection:** Passive: public sources (OSINT)
+* **Triggered when:** Certificate Transparency (crt.sh) lists a still-valid certificate issued in the last 30 days for a reported look-alike (at most 10 look-alikes per scan).
+* **Severity:** High (every reported look-alike accepts email or has a web address, see EASM-BRAND-001)
+* **Evidence:** Certificate Transparency logs (crt.sh) for the look-alike domains already reported
+* **Why it matters:** Someone obtained a publicly trusted certificate for a domain that resembles yours and accepts email or has a web address. Phishing sites need HTTPS to look genuine, so a fresh certificate usually means one is being set up.
+* **What to do:** Look at the site and the certificate. If it impersonates you, report it to the registrar and hosting provider for takedown, block it in your mail and web filters, and warn staff and customers.
+
+### EASM-BRAND-006: Internal package name could be published by anyone
+
+* **Finding type:** `dependency-confusion`
+* **Collection:** Active: the organisation's own web services, then npm and PyPI (separate switch, off by default)
+* **Triggered when:** With active checks on: a package name found in the source maps of a site's own scripts (node_modules/...), its /package.json dependencies or its /requirements.txt does not exist on the public registry (npm or PyPI answers 404).
+* **Severity:** High when the name does not exist on npm or PyPI; Medium for a scoped npm name (@scope/name), which is only claimable if the scope is not registered
+* **Evidence:** Package names revealed by your own web services (source maps, package.json, requirements.txt), checked against npm and PyPI
+* **Why it matters:** Your code uses a package name that does not exist on the public registry. An attacker who publishes a package with that name can get their code run on build servers and developers' machines that also look in the public registry (dependency confusion).
+* **What to do:** Publish a placeholder under that name or reserve your npm scope, configure package managers to fetch internal packages only from your private registry, and stop serving source maps and package files from production sites.
+
 ## Data sources
 
 Every external source the agent can use, whether it needs a key, what it is sent and which rules it feeds. Each one can be switched off in Settings, and System health shows whether it is working. Sources that publish a whole dataset are downloaded at most once a day (Tor: every 6 hours, slow-changing lists: weekly), checked before use, kept in the encrypted database, and the last good copy stays in use when a download fails.
@@ -985,6 +1029,13 @@ One request each, only to a port exposure data reports open on an address the ac
 | `0xC011` | RC4 (ECDHE_RSA_WITH_RC4_128_SHA) |
 | `0xC012` | 3DES (ECDHE_RSA_WITH_3DES_EDE_CBC_SHA) |
 | `0xC018` | anonymous (ECDH_anon_WITH_AES_128_CBC_SHA) |
+
+### Spam blocklists (EASM-MAIL-018)
+
+| Zone | List |
+|---|---|
+| `bl.spamcop.net` | SpamCop |
+| `psbl.surriel.com` | PSBL |
 
 ### Cloud endpoints (EASM-CLOUD-006, EASM-CLOUD-007)
 

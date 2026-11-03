@@ -112,7 +112,8 @@ var findingKinds = map[string]bool{"tls-expired": true, "tls-expiring": true, "t
 	"directory-listing": true, "exposed-api-schema": true, "cors-credential-leak": true, "debug-mode-enabled": true, "second-order-script-takeover": true,
 	"insecure-auth-cookie": true, "missing-security-headers": true, "tls-sni-hostname-leak": true,
 	"unauthenticated-datastore": true, "dns-open-resolver": true, "dns-zone-transfer": true, "snmp-default-creds": true, "ntlm-info-leak": true,
-	"tls-weak-cipher": true, "orphaned-load-balancer": true, "exposed-function-url": true, "waf-origin-bypass": true}
+	"tls-weak-cipher": true, "orphaned-load-balancer": true, "exposed-function-url": true, "waf-origin-bypass": true,
+	"lookalike-tls-issued": true, "phishing-clone": true, "dependency-confusion": true}
 
 func nowUTC() string { return time.Now().UTC().Format(time.RFC3339) }
 

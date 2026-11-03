@@ -308,6 +308,15 @@ func (p *Prober) fetch(ctx context.Context, scheme, host, ip string, port int, p
 // fetchWith is fetch with a method, extra headers and a body. The only non-GET request the
 // prober makes is a read-only GraphQL introspection query.
 func (p *Prober) fetchWith(ctx context.Context, method, scheme, host, ip string, port int, path string, hdr map[string]string, payload []byte) (*fetched, error) {
+	return p.fetchFull(ctx, method, scheme, host, ip, port, path, hdr, payload, probeBody)
+}
+
+// fetchLimit is a GET that keeps up to limit bytes of the answer (scripts and source maps are larger than pages).
+func (p *Prober) fetchLimit(ctx context.Context, scheme, host, ip string, port int, path string, limit int64) (*fetched, error) {
+	return p.fetchFull(ctx, http.MethodGet, scheme, host, ip, port, path, nil, nil, limit)
+}
+
+func (p *Prober) fetchFull(ctx context.Context, method, scheme, host, ip string, port int, path string, hdr map[string]string, payload []byte, limit int64) (*fetched, error) {
 	tr := &http.Transport{
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 			return p.dialer().DialContext(ctx, "tcp", p.addr(ip, port))
@@ -342,7 +351,7 @@ func (p *Prober) fetchWith(ctx context.Context, method, scheme, host, ip string,
 		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, probeBody))
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, limit))
 	return &fetched{Status: resp.StatusCode, Header: resp.Header, Body: body}, nil
 }
 

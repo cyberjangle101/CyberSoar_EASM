@@ -558,7 +558,7 @@ func (s *Scanner) scanTarget(ctx context.Context, t *Target) error {
 			"directory-listing", "exposed-api-schema", "debug-mode-enabled", "cors-credential-leak", "insecure-auth-cookie", "missing-security-headers",
 			"second-order-script-takeover", "tls-sni-hostname-leak",
 			"unauthenticated-datastore", "dns-open-resolver", "dns-zone-transfer", "snmp-default-creds", "ntlm-info-leak", "tls-weak-cipher",
-			"orphaned-load-balancer", "exposed-function-url", "waf-origin-bypass":
+			"orphaned-load-balancer", "exposed-function-url", "waf-origin-bypass", "dependency-confusion":
 			// Only a web check that ran this scan can show these are gone. (Before 1.9.16 the
 			// login-portal, takeover, security.txt, HSTS and weak-certificate findings fell
 			// through to the DNS rule below, so switching active checks off closed them.)
@@ -566,7 +566,7 @@ func (s *Scanner) scanTarget(ctx context.Context, t *Target) error {
 			if hr := results[f.Host]; !reliable && act != nil && act.enabled && hr != nil && hr.NX && len(hr.Failed) == 0 {
 				reliable = true // the host no longer exists, so what was wrong with it is gone too
 			}
-		case "lookalike-domain", "leaked-credentials", "repo-exposure":
+		case "lookalike-domain", "leaked-credentials", "repo-exposure", "phishing-clone", "lookalike-tls-issued":
 			reliable = ext.reliableFor(f.Kind, f.Key)
 		default:
 			if hr := results[f.Host]; hr != nil {

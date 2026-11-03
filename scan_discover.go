@@ -29,6 +29,11 @@ type extraData struct {
 	lookHits    []lookalikeHit
 	lookRan     bool
 
+	lookCerts    []lookCert      // recent certificates for look-alikes (EASM-BRAND-005)
+	lookCertsRan map[string]bool // look-alikes whose certificates were looked up
+	clones       []dnsxFinding   // look-alike sites copying the organisation's (EASM-BRAND-004)
+	cloneChecked map[string]bool // look-alike sites that were visited this scan
+
 	suggest []Suggestion
 
 	leaks   map[string]int // breach name -> number of accounts (nil when not checked)
@@ -52,6 +57,14 @@ func (s *Scanner) gatherExtra(ctx context.Context, t *Target, disc *Discovery, r
 	if cfg.Discover.Lookalikes {
 		s.prog("Looking for look-alike domains", 86, "checking variations of the name")
 		s.lookalikes(ctx, t, results, d)
+		if len(d.lookHits) > 0 && ctx.Err() == nil {
+			s.prog("Looking for look-alike domains", 87, "certificates issued for look-alikes")
+			s.lookalikeCerts(ctx, d)
+			if cfg.Discover.LookalikeProbe {
+				s.prog("Looking for look-alike domains", 87, "comparing look-alike sites with yours")
+				s.cloneCheck(ctx, root, d)
+			}
+		}
 	}
 	if cfg.Discover.Related || cfg.Discover.ReverseIP {
 		d.suggest = s.relatedDomains(ctx, t, disc, results, wildcard)
@@ -507,6 +520,14 @@ func (s *Scanner) applyExtra(tx *Tx, t *Target, d *extraData, now string, emit e
 	for _, h := range d.lookHits {
 		raise("lookalike:"+root+":"+h.Domain, "lookalike-domain", h.severity(), h.Domain, h.detail(root), "")
 	}
+	for _, c := range d.lookCerts {
+		raise("lookcert:"+root+":"+c.Domain, "lookalike-tls-issued", "high", c.Domain, fmt.Sprintf("A certificate was issued on %s by %s for %s, a registered look-alike of %s that accepts email or has a web address. "+
+			"A fresh certificate on a look-alike usually means a site is being set up, often for phishing. crt.sh id %d: https://crt.sh/?id=%d",
+			c.NotBefore.Format("2006-01-02"), c.Issuer, c.Names, root, c.CrtShID, c.CrtShID), "Certificate Transparency")
+	}
+	for _, c := range d.clones {
+		raise(c.key, c.kind, c.sev, c.host, c.detail, c.source)
+	}
 	for br, n := range d.leaks {
 		sev := "medium"
 		if n >= 5 {
@@ -531,6 +552,15 @@ func (s *Scanner) applyExtra(tx *Tx, t *Target, d *extraData, now string, emit e
 	return nil
 }
 
+func (d *extraData) isHit(domain string) bool {
+	for _, h := range d.lookHits {
+		if h.Domain == domain {
+			return true
+		}
+	}
+	return false
+}
+
 // reliableFor says whether a finding of an extra kind may be closed because this scan no longer reproduced it.
 func (d *extraData) reliableFor(kind, key string) bool {
 	if d == nil {
@@ -540,5 +570,10 @@ func (d *extraData) reliableFor(kind, key string) bool {
 		p := strings.SplitN(key, ":", 3)
 		return d.lookRan && len(p) == 3 && d.lookChecked[p[2]] // checked, and not registered any more
 	}
+	if kind == "phishing-clone" {
+		p := strings.SplitN(key, ":", 3)
+		return d.lookRan && len(p) == 3 && (d.cloneChecked[p[2]] || d.lookChecked[p[2]] && !d.isHit(p[2])) // visited and no longer a copy, or gone
+	}
+	// lookalike-tls-issued: an issued certificate stays issued, so it is closed by hand once looked into.
 	return false // breaches and public code do not "go away" in a way a search can prove
 }

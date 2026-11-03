@@ -254,6 +254,9 @@ func (s *Scanner) emailPosture(ctx context.Context, root string, hosts []string,
 			m.did(root, "no-dnssec")
 		}
 	}
+	if s.cfg.Discover.DNSBL && ctx.Err() == nil {
+		s.dnsblCheck(ctx, root, results, m)
+	}
 	sort.SliceStable(m.issues, func(i, j int) bool { return m.issues[i].Host < m.issues[j].Host })
 	return m
 }

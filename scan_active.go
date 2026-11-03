@@ -225,6 +225,10 @@ func (s *Scanner) gatherActive(ctx context.Context, t *Target, hosts []string, r
 		s.prog("Checking network services", 84, "databases, DNS, TLS ciphers, cloud endpoints")
 		s.gatherNet(ctx, t, results, wildcard, asns, intel, d, pr)
 	}
+	if s.cfg.Discover.DependencyConfusion && ctx.Err() == nil {
+		s.prog("Checking network services", 85, "package names against npm and PyPI")
+		s.dependencyConfusion(ctx, d, pr)
+	}
 	if cfg.Shots && ctx.Err() == nil {
 		s.takeShots(ctx, d, cfg)
 	}

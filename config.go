@@ -219,6 +219,10 @@ type DiscoverCfg struct {
 	LookalikeMax int  // how many variations to look up per scan
 	Related      bool // suggest other domains that share certificates with the target
 	ReverseIP    bool // suggest other domains hosted on the same addresses (HackerTarget)
+
+	LookalikeProbe      bool // visit look-alike web sites (EASM-BRAND-004)
+	DependencyConfusion bool // package names from your sites against npm and PyPI (EASM-BRAND-006)
+	DNSBL               bool // your addresses on spam blocklists (EASM-MAIL-018)
 }
 
 // Secrets holds decrypted credentials for one scan.

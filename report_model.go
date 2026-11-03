@@ -156,7 +156,7 @@ func findingCategory(kind string) string {
 		return "Exposed services & software"
 	case kind == "asn-unexpected", kind == "private-ip":
 		return "Ownership & network"
-	case kind == "lookalike-domain", kind == "leaked-credentials", kind == "repo-exposure":
+	case kind == "lookalike-domain", kind == "leaked-credentials", kind == "repo-exposure", kind == "lookalike-tls-issued", kind == "phishing-clone", kind == "dependency-confusion":
 		return "Brand & data leakage"
 	case kind == "default-page", kind == "exposed-path", kind == "no-https-redirect", kind == "directory-listing", kind == "exposed-api-schema",
 		kind == "cors-credential-leak", kind == "debug-mode-enabled", kind == "second-order-script-takeover", kind == "insecure-auth-cookie", kind == "missing-security-headers":
