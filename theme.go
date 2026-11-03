@@ -47,5 +47,5 @@ func (s *Server) themeSet(w http.ResponseWriter, r *http.Request, _ *Session) {
 	}
 	http.SetCookie(w, &http.Cookie{Name: themeCookie, Value: t, Path: "/", HttpOnly: true, Secure: s.secure, // nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure -- Secure is on whenever the UI is served over TLS; plain-HTTP mode could not send it back
 		SameSite: http.SameSiteStrictMode, MaxAge: 400 * 24 * 3600})
-	http.Redirect(w, r, safeNext(r.PostFormValue("next"), "/"), http.StatusSeeOther)
+	http.Redirect(w, r, safeNext(r.PostFormValue("next"), "/"), http.StatusSeeOther) // nosemgrep: go.lang.security.injection.open-redirect.open-redirect -- safeNext allows only same-site paths
 }
