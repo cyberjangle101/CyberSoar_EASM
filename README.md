@@ -14,7 +14,7 @@ Attack surfaces drift. A forgotten subdomain, a new certificate or an unexpected
 - **DNS, ownership and exposure:** resolves every name, maps addresses to their network owner (Team Cymru, RIPEstat) to spot assets outside your expected networks, and adds open ports and CVEs from Shodan InternetDB and optional keyed sources
 - **Findings with evidence:** each finding gives its source of evidence, the risk and the fix, with links to check it yourself; every rule is listed in [docs/RULES.md](docs/RULES.md)
 - **Delta-only alerting:** email, Slack, Teams, webhooks, Jira, and syslog/SIEM over TLS to a collector on your own network, only when something changes, so routine scans stay quiet
-- **Web interface:** dashboard, findings, asset inventory, reports (page, PDF, CSV, JSON, SARIF, STIX) and an API
+- **Web interface:** dashboard, findings, asset inventory, reports (page, PDF, CSV, JSON, SARIF, STIX), an API, and an MCP endpoint for AI assistants ([docs/MCP.md](docs/MCP.md))
 - **Users and access:** viewer, analyst and admin roles, two-factor sign-in, Active Directory sign-in and an audit trail
 - **Optional checks, off by default:** active checks of your own hosts (TLS, headers, exposed files, screenshots) and threat intelligence (look-alike domains, leaked accounts, public code)
 - **Encrypted local state:** an embedded SQLite database, encrypted at rest, so there is nothing else to install

@@ -1,0 +1,36 @@
+{{define "content"}}
+<div class="head">
+  <div><h1>Search</h1>
+  {{with .R}}<p class="muted">{{.Count}} result(s) for <strong>{{.Query}}</strong> across entities, findings and assets.</p>{{else}}<p class="muted">Search hosts, IP addresses, ports, CVEs, certificate issuers and finding titles across every monitored entity.</p>{{end}}</div>
+</div>
+{{if .TooShort}}<div class="flash warn" role="status">Type at least {{.MinLen}} characters.</div>{{end}}
+{{with .R}}
+{{if .Targets}}<section class="card">
+  <h2>Entities <span class="badge info">{{.TargetTotal}}</span></h2>
+  <ul class="plain">{{range .Targets}}<li><a href="/targets/{{.ID}}" class="mono">{{.Domain}}</a> <span class="muted small">· <a href="/findings?target={{.Domain}}">findings</a> · <a href="/assets?target={{.Domain}}">assets</a></span></li>{{end}}</ul>
+</section>{{end}}
+{{if .Findings}}<section class="card">
+  <h2>Findings <span class="badge info">{{.FindingTotal}}</span></h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Severity</th><th>Finding</th><th>Host</th><th>Entity</th><th>Status</th><th>Last seen</th></tr></thead>
+    <tbody>{{range .Findings}}{{$i := finfo .}}<tr class="{{if ne .Status "open"}}dim{{end}}">
+      <td><span class="badge {{sevClass .Severity}}">{{upper .Severity}}</span></td>
+      <td class="prose"><a href="/findings/{{.ID}}/evidence"><strong>{{$i.Title}}</strong></a><div class="small muted">{{.Detail}}</div></td>
+      <td class="mono">{{.Host}}</td><td>{{.Root}}</td><td><span class="badge st-{{.Status}}">{{.Status}}</span></td><td>{{ts .LastSeen}}</td>
+    </tr>{{end}}</tbody>
+  </table></div>
+  {{if gt .FindingTotal (len .Findings)}}<p class="muted small">Showing the first {{len .Findings}}: open findings first, then the most severe. Narrow the search to see the rest.</p>{{end}}
+</section>{{end}}
+{{if .Assets}}<section class="card">
+  <h2>Assets <span class="badge info">{{.AssetTotal}}</span></h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Type</th><th>Asset</th><th>Entity</th><th>Details</th><th>Last seen</th></tr></thead>
+    <tbody>{{range .Assets}}<tr>
+      <td><span class="badge type-{{.Type}}">{{.Type}}</span></td><td class="mono"><a href="{{href "/assets/view" (printf "type=%s&id=%s" .Type (urlquery .Key))}}">{{.Value}}</a></td><td>{{.Root}}</td><td class="prose small">{{.Details}}</td><td>{{ts .LastSeen}}</td>
+    </tr>{{end}}</tbody>
+  </table></div>
+  {{if gt .AssetTotal (len .Assets)}}<p><a class="btn small" href="{{href "/assets" $.AssetsLink}}">See all {{.AssetTotal}} assets ›</a></p>{{end}}
+</section>{{end}}
+{{if eq .Count 0}}<section class="card"><p class="muted">Nothing matches. Search looks for the text anywhere in a host name, address, port, finding title or detail, so try a shorter part of it.</p></section>{{end}}
+{{end}}
+{{end}}

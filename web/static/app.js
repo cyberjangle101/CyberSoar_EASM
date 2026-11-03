@@ -70,3 +70,21 @@ document.addEventListener('change', function (e) {
   };
   if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', fill); } else { fill(); }
 })();
+
+// Top bar: "/" jumps to the search box (unless typing in a field already).
+document.addEventListener('keydown', function (e) {
+  if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) { return; }
+  const t = e.target;
+  if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) { return; }
+  const box = document.querySelector('.gsearch input');
+  if (box) { e.preventDefault(); box.focus(); box.select(); }
+});
+
+// Theme toggle: while following the system, switch to the opposite of what the system shows.
+document.addEventListener('submit', function (e) {
+  const btn = e.target.querySelector && e.target.querySelector('[data-theme-toggle]');
+  const inp = e.target.querySelector && e.target.querySelector('input[name="theme"]');
+  if (!btn || !inp || inp.value) { return; }
+  const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  inp.value = dark ? 'light' : 'dark';
+});
