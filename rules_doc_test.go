@@ -141,9 +141,45 @@ func renderRules() string {
 	w("### Sensitive files and pages (EASM-WEB-002)\n\n")
 	w("Each path is reported only when it answers 200 and its content passes the file's own test, so a site that answers every path with its home page produces nothing. Secret values are never copied into findings.\n\n")
 	w("| Path | Severity | What it exposes |\n|---|---|---|\n")
-	w("| `/` (directory listing) | Medium | directory listing is switched on, so anyone can browse and download the files in this folder |\n")
 	for _, p := range sensitivePaths {
 		w("| `%s` | %s | %s |\n", p.Path, titleCase(p.Severity), cell(p.Why))
+	}
+	w("\n")
+
+	w("### API schema paths (EASM-WEB-006)\n\nOn hosts named like developer or test systems every one of these is Low.\n\n| Path | Severity | What it exposes |\n|---|---|---|\n")
+	for _, p := range schemaPaths {
+		w("| `%s` | %s | %s |\n", p.Path, titleCase(p.Severity), cell(p.Why))
+	}
+	w("| `/graphql`, `/api/graphql` (POST of a read-only introspection query) | Medium | GraphQL introspection is enabled, so anyone can download the full schema |\n\n")
+
+	w("### Datastore checks (EASM-EXP-006)\n\nOne request each, only to a port exposure data reports open on an address the active checks may reach.\n\n| Port | Service |\n|---|---|\n")
+	for _, port := range sortedIntKeys(datastoreChecks) {
+		w("| %d | %s |\n", port, cell(datastoreChecks[port].Name))
+	}
+	w("\n### Weak cipher suites (EASM-TLS-010)\n\n| Code | Suite |\n|---|---|\n")
+	for _, code := range sortedUint16Keys(weakSuites) {
+		w("| `0x%04X` | %s |\n", code, cell(weakSuites[code]))
+	}
+	w("\n### Spam blocklists (EASM-MAIL-018)\n\n| Zone | List |\n|---|---|\n")
+	for _, z := range dnsblZones {
+		w("| `%s` | %s |\n", z.zone, cell(z.name))
+	}
+	w("\n### Cloud endpoints (EASM-CLOUD-006, EASM-CLOUD-007)\n\n| Name contains or ends with | What it is | Rule |\n|---|---|---|\n")
+	for _, s := range lbSuffixes {
+		w("| `%s` | %s | EASM-CLOUD-006 |\n", s.suffix, cell(s.name))
+	}
+	for _, s := range functionSuffixes {
+		w("| `%s` | %s | EASM-CLOUD-007 |\n", s.suffix, cell(s.name))
+	}
+	w("\n")
+
+	w("### Debug signs (EASM-WEB-008)\n\nA path of \"(made-up path)\" means the error page for a page that does not exist.\n\n| Path | Recognised by | Severity | What it means |\n|---|---|---|---|\n")
+	for _, d := range debugPages {
+		path := d.Path
+		if path == "" {
+			path = "(made-up path)"
+		}
+		w("| `%s` | `%s` | %s | %s |\n", path, cell(d.Needle), titleCase(d.Severity), cell(d.Why))
 	}
 	w("\n")
 

@@ -279,7 +279,7 @@ func (s *Scanner) scanTarget(ctx context.Context, t *Target) error {
 	}
 
 	// 4c. Active checks (opt-in): look at the web services themselves
-	act := s.gatherActive(ctx, t, hosts, results, wildcard, asns)
+	act := s.gatherActive(ctx, t, hosts, results, wildcard, asns, intel)
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -553,12 +553,20 @@ func (s *Scanner) scanTarget(ctx context.Context, t *Target) error {
 		case "shadow-it-ct-subdomain":
 			hr := results[f.Host]
 			reliable = hr != nil && hr.NX && len(hr.Failed) == 0 // stays until reviewed, unless the host is gone
-		case "tls-expired", "tls-expiring", "tls-hostname", "tls-untrusted", "tls-legacy", "default-page", "exposed-path", "no-https-redirect", "bucket-public", "bucket-takeover":
+		case "tls-expired", "tls-expiring", "tls-hostname", "tls-untrusted", "tls-legacy", "tls-weak-key", "tls-weak-signature", "hsts-missing",
+			"default-page", "exposed-path", "no-https-redirect", "login-portal", "subdomain-takeover", "no-security-txt", "bucket-public", "bucket-takeover",
+			"directory-listing", "exposed-api-schema", "debug-mode-enabled", "cors-credential-leak", "insecure-auth-cookie", "missing-security-headers",
+			"second-order-script-takeover", "tls-sni-hostname-leak",
+			"unauthenticated-datastore", "dns-open-resolver", "dns-zone-transfer", "snmp-default-creds", "ntlm-info-leak", "tls-weak-cipher",
+			"orphaned-load-balancer", "exposed-function-url", "waf-origin-bypass", "dependency-confusion":
+			// Only a web check that ran this scan can show these are gone. (Before 1.9.16 the
+			// login-portal, takeover, security.txt, HSTS and weak-certificate findings fell
+			// through to the DNS rule below, so switching active checks off closed them.)
 			reliable = act.reliableFor(f.Key)
 			if hr := results[f.Host]; !reliable && act != nil && act.enabled && hr != nil && hr.NX && len(hr.Failed) == 0 {
 				reliable = true // the host no longer exists, so what was wrong with it is gone too
 			}
-		case "lookalike-domain", "leaked-credentials", "repo-exposure":
+		case "lookalike-domain", "leaked-credentials", "repo-exposure", "phishing-clone", "lookalike-tls-issued":
 			reliable = ext.reliableFor(f.Kind, f.Key)
 		default:
 			if hr := results[f.Host]; hr != nil {

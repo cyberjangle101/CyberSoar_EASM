@@ -47,7 +47,7 @@ type DomainInfo struct {
 }
 
 // intelURLs holds the base URLs of the exposure-intelligence services (overridable in tests).
-type intelURLs struct{ internetdb, shodan, censys, virustotal, rdap, hibp, github, reverseip, isc, epss string }
+type intelURLs struct{ internetdb, shodan, censys, virustotal, rdap, hibp, github, reverseip, isc, epss, npm, pypi string }
 
 // Enricher queries optional exposure-intelligence services. It never touches your
 // own infrastructure; it asks third parties what they already know about an IP.
@@ -80,6 +80,8 @@ func NewEnricher(cfg IntelCfg, log *slog.Logger, ua string) *Enricher {
 			reverseip:  "https://api.hackertarget.com/reverseiplookup/",
 			isc:        "https://isc.sans.edu/api/ip/",
 			epss:       "https://api.first.org/data/v1/epss",
+			npm:        "https://registry.npmjs.org/",
+			pypi:       "https://pypi.org/pypi/",
 		}}
 }
 

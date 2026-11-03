@@ -52,6 +52,8 @@
     <label class="check wide"><input type="checkbox" name="active_checks" {{if .S.ActiveChecks}}checked{{end}}> Run active checks during scans</label>
     <label class="check"><input type="checkbox" name="active_paths" {{if .S.ActivePaths}}checked{{end}}> Look for exposed files (.git, .env, status pages)</label>
     <label class="check"><input type="checkbox" name="active_buckets" {{if .S.ActiveBuckets}}checked{{end}}> Check cloud storage that names point to</label>
+    <label class="check wide"><input type="checkbox" name="active_services" {{if .S.ActiveServices}}checked{{end}}> Check network services <span class="hint">Databases and caches that answer without a password, DNS zone transfers and open resolvers, weak TLS ciphers, Windows (NTLM) details and cloud endpoints. Read-only requests to the ports exposure data reports open.</span></label>
+    <label class="check wide"><input type="checkbox" name="active_snmp" {{if .S.ActiveSNMP}}checked{{end}}> Try the default SNMP passwords (public, private) <span class="hint">One read of the device description per address. It is a password attempt, so switch it on only where you are allowed to.</span></label>
     <label class="check wide"><input type="checkbox" name="active_foreign" {{if .S.ActiveForeign}}checked{{end}}> Also probe addresses outside my expected networks <span class="hint">That can touch other people&rsquo;s servers (for example a SaaS provider). Leave off unless you know you may.</span></label>
     <label>Hosts per scan <input name="active_max_hosts" inputmode="numeric" value="{{.S.ActiveMaxHosts}}"></label>
     <label>Timeout per request (seconds) <input name="active_timeout_seconds" inputmode="numeric" value="{{.S.ActiveTimeoutSeconds}}"></label>
@@ -121,6 +123,7 @@
       <label class="check"><input type="checkbox" name="internetdb_enabled" {{if .S.InternetDBEnabled}}checked{{end}}> Shodan InternetDB <span class="hint">Free, no key. Open ports, CVEs and tags per IP, refreshed weekly.</span></label>
       <label class="check"><input type="checkbox" name="rdap_enabled" {{if .S.RDAPEnabled}}checked{{end}}> RDAP domain registration <span class="hint">Free, no key. Registrar and expiry date; raises a finding when a domain is close to expiring.</span></label>
       <label class="check"><input type="checkbox" name="isc_enabled" {{if .S.ISCEnabled}}checked{{end}}> SANS Internet Storm Center <span class="hint">Free, no key. Whether an address has been reported attacking DShield sensors: an independent second opinion on addresses flagged as malicious.</span></label>
+      <label class="check"><input type="checkbox" name="dnsbl_enabled" {{if .S.DNSBLEnabled}}checked{{end}}> Spam blocklists (SpamCop, PSBL) <span class="hint">Off by default. Free DNS lookups of your mail and web addresses. Spamhaus is not used: it refuses lookups through public resolvers without a paid DQS key.</span></label>
       <label class="check"><input type="checkbox" name="epss_enabled" {{if .S.EPSSEnabled}}checked{{end}}> FIRST EPSS <span class="hint">Free, no key; receives CVE identifiers only. The chance each CVE is exploited in the next 30 days, used to rank and grade vulnerability findings.</span></label>
       <label class="check"><input type="checkbox" name="kev_enabled" {{if .S.KEVEnabled}}checked{{end}}> CISA Known Exploited Vulnerabilities <span class="hint">A daily download; nothing is sent. CVEs exploited in the wild make a vulnerability finding High.</span></label>
       <label class="check"><input type="checkbox" name="tor_exit_enabled" {{if .S.TorExitEnabled}}checked{{end}}> Tor exit-node list <span class="hint">A download from the Tor Project; nothing is sent. Raises a finding when one of your addresses is a Tor exit.</span></label>
@@ -171,6 +174,12 @@
     <div class="grid">
       <label class="check"><input type="checkbox" name="lookalike_enabled" {{if .S.LookalikeEnabled}}checked{{end}}> Look for look-alike domains <span class="hint">Tries typos, swapped and similar-looking letters, added words like &ldquo;-login&rdquo; and other endings of each domain. Reports the ones someone else registered that accept email or have a website; parked and for-sale names are left out.</span></label>
       <label>Variations to try per scan <input name="lookalike_max" inputmode="numeric" value="{{.S.LookalikeMax}}"><span class="hint">10 to 2000. Each one costs a few DNS lookups.</span></label>
+      <label class="check wide"><input type="checkbox" name="lookalike_probe" {{if .S.LookalikeProbe}}checked{{end}}> Also visit the look-alike web sites to spot clones of yours <span class="hint">Fetches each look-alike&rsquo;s home page and icon and compares them with your own site. This connects to servers someone else runs, possibly an attacker, who can see the visit. New certificates for look-alikes are reported without this, from Certificate Transparency.</span></label>
+    </div>
+
+    <h3>Dependency confusion</h3>
+    <div class="grid">
+      <label class="check wide"><input type="checkbox" name="dependency_confusion" {{if .S.DependencyConfusion}}checked{{end}}> Look for internal package names that anyone could publish on npm or PyPI <span class="hint">Reads the package names your own web services reveal (JavaScript source maps, package.json, requirements.txt; needs active checks) and asks npm and PyPI whether each name exists. The registries see those names.</span></label>
     </div>
 
     <h3>GitHub (public code that names your domain)</h3>

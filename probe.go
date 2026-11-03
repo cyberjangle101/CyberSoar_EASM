@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/rsa"
@@ -31,6 +32,8 @@ type ActiveCfg struct {
 	Foreign     bool // also probe addresses outside the expected ownership
 	Paths       bool // look for well-known exposed files
 	Buckets     bool // check cloud storage that names point to
+	Services    bool // check network services (probe_net.go)
+	SNMP        bool // try default SNMP communities
 	Shots       bool
 	MaxShots    int
 	ChromePath  string
@@ -116,9 +119,19 @@ type WebResult struct {
 	HSTS       bool
 	Powered    string
 	TLS        *TLSInfo
-	DefaultPg  string // name of the default page that is shown, if any
-	Listing    bool   // directory listing on /
+	DefaultPg  string   // name of the default page that is shown, if any
+	Listing    bool     // directory listing on /
+	ListingBig []string // archives, dumps and backups the listing offers ("" = none)
 	Hits       []PathHit
+	Schemas    []PathHit   // API descriptions, Swagger UI and GraphQL introspection that answered (EASM-WEB-006)
+	Debug      []PathHit   // debuggers, error pages with stack traces and version headers (EASM-WEB-008)
+	CORS       string      // the reflected test origin when credentials are allowed too ("" = not reflected)
+	CORSKnown  bool        // the CORS request was answered
+	Cookies    []string    // session/auth cookies missing Secure or HttpOnly, e.g. "sid (no HttpOnly)"
+	NoHeaders  []string    // baseline security headers a 2xx HTML page does not send
+	NoFrameOpt bool        // neither X-Frame-Options nor CSP frame-ancestors
+	Scripts    []string    // external hosts the home page loads scripts from
+	RootJSON   string      // the home page is JSON: "data", "small", "error", or "" (not JSON)
 	Portals    []PortalHit // sign-in pages and consoles recognised (portals.go)
 	SecTxt     string      // apex and www over HTTPS only: "present", "missing", or "" (not checked)
 	Takeover   string      // the unclaimed service page shown, e.g. "GitHub Pages via x.github.io" ("" = none)
@@ -289,6 +302,21 @@ const probeBody = 64 << 10
 
 // fetch performs one GET against ip:port, presenting host as the server name. Redirects are not followed.
 func (p *Prober) fetch(ctx context.Context, scheme, host, ip string, port int, path string) (*fetched, error) {
+	return p.fetchWith(ctx, http.MethodGet, scheme, host, ip, port, path, nil, nil)
+}
+
+// fetchWith is fetch with a method, extra headers and a body. The only non-GET request the
+// prober makes is a read-only GraphQL introspection query.
+func (p *Prober) fetchWith(ctx context.Context, method, scheme, host, ip string, port int, path string, hdr map[string]string, payload []byte) (*fetched, error) {
+	return p.fetchFull(ctx, method, scheme, host, ip, port, path, hdr, payload, probeBody)
+}
+
+// fetchLimit is a GET that keeps up to limit bytes of the answer (scripts and source maps are larger than pages).
+func (p *Prober) fetchLimit(ctx context.Context, scheme, host, ip string, port int, path string, limit int64) (*fetched, error) {
+	return p.fetchFull(ctx, http.MethodGet, scheme, host, ip, port, path, nil, nil, limit)
+}
+
+func (p *Prober) fetchFull(ctx context.Context, method, scheme, host, ip string, port int, path string, hdr map[string]string, payload []byte, limit int64) (*fetched, error) {
 	tr := &http.Transport{
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 			return p.dialer().DialContext(ctx, "tcp", p.addr(ip, port))
@@ -305,18 +333,25 @@ func (p *Prober) fetch(ctx context.Context, scheme, host, ip string, port int, p
 	if (scheme == "http" && port != 80) || (scheme == "https" && port != 443) {
 		u.Host = net.JoinHostPort(host, fmt.Sprint(port))
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	var reqBody io.Reader
+	if payload != nil {
+		reqBody = bytes.NewReader(payload)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, u.String(), reqBody)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", "easm-agent/"+version+" (+defensive attack-surface monitoring)")
 	req.Header.Set("Accept", "*/*")
+	for k, v := range hdr {
+		req.Header.Set(k, v)
+	}
 	resp, err := cl.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, probeBody))
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, limit))
 	return &fetched{Status: resp.StatusCode, Header: resp.Header, Body: body}, nil
 }
 
@@ -430,10 +465,7 @@ var sensitivePaths = []struct {
 		func(b []byte, _ http.Header) bool { return strings.Contains(string(b), "Application Trace") }},
 	{"/debug/pprof/", "the Go profiling endpoint is public: it reveals internals and can be used to load the server", "medium",
 		func(b []byte, _ http.Header) bool { return strings.Contains(string(b), "Types of profiles available") }},
-	// API descriptions and cross-domain policy.
-	{"/swagger.json", "an API description is public and maps every endpoint for an attacker (fine only for a deliberately public API)", "low", isAPISpec},
-	{"/openapi.json", "an API description is public and maps every endpoint for an attacker (fine only for a deliberately public API)", "low", isAPISpec},
-	{"/v3/api-docs", "an API description is public and maps every endpoint for an attacker (fine only for a deliberately public API)", "low", isAPISpec},
+	// Cross-domain policy. (API descriptions are EASM-WEB-006, see schemaPaths.)
 	{"/crossdomain.xml", "the Flash/Silverlight cross-domain policy allows any site to read responses as the visitor", "low",
 		func(b []byte, _ http.Header) bool { return strings.Contains(string(b), `allow-access-from domain="*"`) }},
 }
@@ -488,13 +520,25 @@ func (p *Prober) probeWeb(ctx context.Context, host, ip string, port int, scheme
 	wr.DefaultPg = detectDefaultPage(wr.Title, root.Body)
 	wr.Listing = strings.Contains(string(root.Body), "<title>Index of /") || strings.Contains(string(root.Body), "<h1>Index of /")
 	if wr.Listing {
-		wr.Hits = append(wr.Hits, PathHit{Path: "/", Why: "directory listing is switched on, so anyone can browse and download the files in this folder", Severity: "medium"})
+		wr.ListingBig = riskyListed(root.Body)
 	}
 	sum := sha256.Sum256(root.Body)
 	wr.BodyHash = fmt.Sprintf("%x", sum[:8])
 	wr.rootBody = root.Body
 	wr.Portals = portalsOnPage(root.Status, root.Header, root.Body)
+	wr.Cookies = insecureCookies(root.Header, scheme == "https")
+	wr.RootJSON = jsonShape(root.Header, root.Body)
+	if root.Status >= 200 && root.Status < 300 && strings.Contains(strings.ToLower(root.Header.Get("Content-Type")), "html") {
+		wr.NoHeaders, wr.NoFrameOpt = missingHeaders(root.Header)
+		wr.Scripts = scriptHosts(root.Body, host)
+	}
+	if d := versionHeaders(root.Header); d != "" {
+		wr.Debug = append(wr.Debug, PathHit{Path: "/", Why: d, Severity: "low"})
+	}
+	p.checkCORS(ctx, wr, scheme, host, ip, port)
 	if p.cfg.Paths {
+		p.checkSchemas(ctx, wr, scheme, host, ip, port)
+		p.checkDebug(ctx, wr, scheme, host, ip, port)
 		for _, sp := range sensitivePaths {
 			if ctx.Err() != nil {
 				break

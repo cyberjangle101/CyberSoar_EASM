@@ -19,6 +19,10 @@ type activeData struct {
 	buckets map[string][]BucketResult // host -> results
 	shots   map[string][]byte         // "host:port" -> PNG
 	scopes  map[string]bool           // things that were checked successfully; only these may resolve findings
+	lapsed  map[string][]string       // "host:port" -> script domains on that page that are not registered (EASM-WEB-009)
+	sniLeak map[string][]string       // address -> internal or unknown names on its default certificate (EASM-TLS-011)
+	sniHost map[string]string         // address -> a host name that points at it, to file the finding under
+	extra   []dnsxFinding             // network-service and cloud-endpoint findings (scan_net.go)
 }
 
 func webScope(host string, port int) string { return "web|" + host + "|" + strconv.Itoa(port) }
@@ -31,6 +35,10 @@ func activeScope(key string) string {
 		return "web|" + p[2] + "|" + p[3]
 	case len(p) >= 4 && p[0] == "bucket":
 		return "bucket|" + p[2] + "|" + p[3]
+	case len(p) >= 5 && p[0] == "net" && p[4] == "axfr":
+		return "net|" + p[2] + "|" + p[3] + "|axfr"
+	case len(p) >= 4 && p[0] == "net":
+		return "net|" + p[2] + "|" + p[3]
 	}
 	return ""
 }
@@ -57,9 +65,10 @@ type probeJob struct {
 	port     int
 }
 
-func (s *Scanner) gatherActive(ctx context.Context, t *Target, hosts []string, results map[string]*HostResult, wildcard map[string]struct{}, asns map[string]*ASNInfo) *activeData {
+func (s *Scanner) gatherActive(ctx context.Context, t *Target, hosts []string, results map[string]*HostResult, wildcard map[string]struct{}, asns map[string]*ASNInfo, intel *intelData) *activeData {
 	cfg := s.cfg.Active
-	d := &activeData{enabled: cfg.Enabled, buckets: map[string][]BucketResult{}, shots: map[string][]byte{}, scopes: map[string]bool{}}
+	d := &activeData{enabled: cfg.Enabled, buckets: map[string][]BucketResult{}, shots: map[string][]byte{}, scopes: map[string]bool{},
+		lapsed: map[string][]string{}, sniLeak: map[string][]string{}, sniHost: map[string]string{}}
 	if !cfg.Enabled {
 		return d
 	}
@@ -168,6 +177,58 @@ func (s *Scanner) gatherActive(ctx context.Context, t *Target, hosts []string, r
 		}
 		return d.results[i].Port < d.results[j].Port
 	})
+
+	// EASM-WEB-009: is every domain the pages load scripts from still registered?
+	reg := map[string]regState{}
+	for _, wr := range d.results {
+		for _, sh := range wr.Scripts {
+			dom := registrable(sh)
+			if dom == "" || ctx.Err() != nil {
+				continue
+			}
+			switch s.registration(ctx, dom, reg) {
+			case regUnregistered:
+				d.lapsed[fmt.Sprintf("%s:%d", wr.Host, wr.Port)] = append(d.lapsed[fmt.Sprintf("%s:%d", wr.Host, wr.Port)], dom)
+			case regUnknown:
+				delete(d.scopes, webScope(wr.Host, wr.Port)) // not fully checked: nothing on this page may be resolved
+			}
+		}
+	}
+
+	// EASM-TLS-011: what each address's default certificate (no SNI) gives away.
+	known := map[string]bool{}
+	for _, h := range hosts {
+		known[h] = true
+	}
+	for _, wr := range d.results {
+		if wr.Scheme != "https" || wr.Port != 443 || ctx.Err() != nil {
+			continue
+		}
+		if _, done := d.sniHost[wr.IP]; done {
+			continue
+		}
+		d.sniHost[wr.IP] = wr.Host
+		names, err := pr.defaultCertNames(ctx, wr.IP, 443)
+		if err != nil {
+			continue
+		}
+		d.scopes[webScope(wr.IP, 443)] = true
+		for _, n := range names {
+			bare := strings.TrimPrefix(n, "*.")
+			underRoot := bare == t.Domain || strings.HasSuffix(bare, "."+t.Domain)
+			if (underRoot && !known[bare] && !strings.HasPrefix(n, "*.")) || (!underRoot && internalName(n)) {
+				d.sniLeak[wr.IP] = append(d.sniLeak[wr.IP], n)
+			}
+		}
+	}
+	if (cfg.Services || cfg.SNMP) && ctx.Err() == nil {
+		s.prog("Checking network services", 84, "databases, DNS, TLS ciphers, cloud endpoints")
+		s.gatherNet(ctx, t, results, wildcard, asns, intel, d, pr)
+	}
+	if s.cfg.Discover.DependencyConfusion && ctx.Err() == nil {
+		s.prog("Checking network services", 85, "package names against npm and PyPI")
+		s.dependencyConfusion(ctx, d, pr)
+	}
 	if cfg.Shots && ctx.Err() == nil {
 		s.takeShots(ctx, d, cfg)
 	}
@@ -274,12 +335,62 @@ func (s *Scanner) applyActive(tx *Tx, root string, d *activeData, now string, em
 		for _, h := range wr.Hits {
 			raise(k("exposed-path", h.Path), "exposed-path", h.Severity, wr.Host, fmt.Sprintf("%s%s: %s.", strings.TrimSuffix(wr.URL(), "/"), h.Path, h.Why), "")
 		}
+		base := strings.TrimSuffix(wr.URL(), "/")
+		if wr.Listing {
+			sev, what := "medium", "anyone can browse and download the files in this folder"
+			if len(wr.ListingBig) > 0 {
+				sev, what = "high", "anyone can browse it, and it offers archives, dumps or backups: "+strings.Join(wr.ListingBig, ", ")
+			}
+			raise(k("directory-listing"), "directory-listing", sev, wr.Host, fmt.Sprintf("%s/ shows a directory listing: %s.", base, what), "")
+		}
+		for _, h := range wr.Schemas {
+			raise(k("exposed-api-schema", h.Path), "exposed-api-schema", h.Severity, wr.Host, fmt.Sprintf("%s%s: %s.", base, h.Path, h.Why), "")
+		}
+		for _, h := range wr.Debug {
+			at := base + h.Path
+			if h.Path == "/" {
+				at = wr.URL()
+			} else if strings.HasPrefix(h.Path, "/easm-check-") {
+				at = base + " (any missing page)"
+			}
+			raise(k("debug-mode-enabled", debugSlug(h.Why)), "debug-mode-enabled", h.Severity, wr.Host, fmt.Sprintf("%s: %s.", at, h.Why), "")
+		}
+		if wr.CORS != "" {
+			raise(k("cors-credential-leak"), "cors-credential-leak", "high", wr.Host, fmt.Sprintf("%s answers a request from the made-up site %s with Access-Control-Allow-Origin set to that site "+
+				"and Access-Control-Allow-Credentials: true, so any web site can read its responses with the visitor's cookies.", wr.URL(), wr.CORS), "")
+		}
+		if len(wr.Cookies) > 0 {
+			sev := "low"
+			if len(wr.Portals) > 0 {
+				sev = "medium"
+			}
+			raise(k("insecure-auth-cookie"), "insecure-auth-cookie", sev, wr.Host, fmt.Sprintf("%s sets session or sign-in cookies without protective flags: %s.", wr.URL(), strings.Join(wr.Cookies, "; ")), "")
+		}
+		if len(wr.NoHeaders) > 0 {
+			sev := "low"
+			if wr.NoFrameOpt && len(wr.Portals) > 0 {
+				sev = "medium" // a sign-in page that can be framed invites clickjacking
+			}
+			raise(k("missing-security-headers"), "missing-security-headers", sev, wr.Host, fmt.Sprintf("%s does not send %s.", wr.URL(), strings.Join(wr.NoHeaders, ", ")), "")
+		}
+		for _, dom := range d.lapsed[fmt.Sprintf("%s:%d", wr.Host, wr.Port)] {
+			raise(k("second-order-script-takeover", dom), "second-order-script-takeover", "high", wr.Host, fmt.Sprintf("%s loads a script from %s, which is not registered. "+
+				"Whoever registers it runs their code in every visitor's browser on this site.", wr.URL(), dom), "")
+		}
 		if wr.Scheme == "http" && wr.Port == 80 {
 			if sec := byKey[fmt.Sprintf("%s:443", wr.Host)]; sec != nil && sec.Status < 500 && !redirectsToHTTPS(wr) {
 				raise(k("no-https-redirect"), "no-https-redirect", "low", wr.Host,
 					fmt.Sprintf("%s answers over plain HTTP (status %d) instead of sending visitors to the HTTPS site.", wr.URL(), wr.Status), "")
 			}
 		}
+	}
+	for _, f := range d.extra {
+		raise(f.key, f.kind, f.sev, f.host, f.detail, "")
+	}
+	for _, ip := range sortedKeys(d.sniLeak) {
+		names := d.sniLeak[ip]
+		raise("web:tls-sni-hostname-leak:"+ip+":443", "tls-sni-hostname-leak", "low", d.sniHost[ip], fmt.Sprintf("%s, asked without a host name (no SNI), shows a certificate that names %s. "+
+			"Default certificates like this map the address to internal or unlisted systems.", ip, strings.Join(names, ", ")), "")
 	}
 	for host, list := range d.buckets {
 		for _, b := range list {
@@ -309,6 +420,16 @@ func (s *Scanner) unclaimedService(hr *HostResult, body []byte) string {
 		}
 	}
 	return ""
+}
+
+// debugSlug names a debug finding by what was found, so each kind gets its own finding key.
+func debugSlug(why string) string {
+	for _, w := range []string{"Werkzeug", "Django", "Whoops", "ASP.NET", "Ignition", "Symfony"} {
+		if strings.Contains(why, w) {
+			return strings.ToLower(strings.ReplaceAll(w, ".", ""))
+		}
+	}
+	return "version-headers"
 }
 
 func titleNote(t string) string {

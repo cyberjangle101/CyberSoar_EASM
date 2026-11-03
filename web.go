@@ -1515,6 +1515,7 @@ func parseSettingsForm(r *http.Request, cur Settings) (Settings, error) {
 	s.AlertRemovals = on("alert_removals")
 	s.Require2FA = on("require_2fa")
 	s.ActiveChecks, s.ActiveForeign, s.ActivePaths, s.ActiveBuckets = on("active_checks"), on("active_foreign"), on("active_paths"), on("active_buckets")
+	s.ActiveServices, s.ActiveSNMP = on("active_services"), on("active_snmp")
 	s.Screenshots, s.ChromePath = on("screenshots"), strings.TrimSpace(r.PostFormValue("chrome_path"))
 	s.CrtShEnabled, s.HackerTargetEnabled, s.OTXEnabled, s.AnubisEnabled = on("crtsh_enabled"), on("hackertarget_enabled"), on("otx_enabled"), on("anubis_enabled")
 	s.ASNEnabled, s.ASNBGPViewFallback = on("asn_enabled"), on("asn_bgpview_fallback")
@@ -1527,6 +1528,7 @@ func parseSettingsForm(r *http.Request, cur Settings) (Settings, error) {
 	s.CensysEnabled, s.CensysOrgID, s.VirusTotalEnabled = on("censys_enabled"), str("censys_org_id"), on("virustotal_enabled")
 	s.HIBPEnabled, s.GitHubEnabled = on("hibp_enabled"), on("github_enabled")
 	s.LookalikeEnabled, s.RelatedEnabled, s.ReverseIPEnabled = on("lookalike_enabled"), on("related_enabled"), on("reverseip_enabled")
+	s.LookalikeProbe, s.DependencyConfusion, s.DNSBLEnabled = on("lookalike_probe"), on("dependency_confusion"), on("dnsbl_enabled")
 	if err := s.Normalize(); err != nil {
 		return cur, err
 	}
@@ -1682,6 +1684,9 @@ var threatIntelChecks = []struct {
 	on          func(Settings) bool
 }{
 	{"look-alike domains", "lookalike-domain", func(s Settings) bool { return s.LookalikeEnabled }},
+	{"certificates on look-alikes", "lookalike-tls-issued", func(s Settings) bool { return s.LookalikeEnabled }},
+	{"look-alike site clones", "phishing-clone", func(s Settings) bool { return s.LookalikeEnabled && s.LookalikeProbe }},
+	{"dependency confusion", "dependency-confusion", func(s Settings) bool { return s.DependencyConfusion }},
 	{"public code", "repo-exposure", func(s Settings) bool { return s.GitHubEnabled }},
 	{"leaked accounts", "leaked-credentials", func(s Settings) bool { return s.HIBPEnabled }},
 }

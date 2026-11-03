@@ -4,9 +4,45 @@ What changed in each release of EASM Agent, newest first. Releases and their sig
 
 ## 1.9
 
-**v1.9.16 (six new DNS and certificate rules):**
+**v1.9.16 (twenty-eight new rules: DNS, certificates, web applications, network services, threat intelligence):**
 
-All six are passive: they use DNS, registration data and Certificate Transparency, which the scan already reads, plus one direct question to a delegated zone's nameservers, as any resolver asks. Each is listed in [docs/RULES.md](docs/RULES.md).
+Every rule is listed in [docs/RULES.md](docs/RULES.md).
+
+*Threat intelligence and reputation.* These are all **off by default**.
+
+* **EASM-BRAND-005 New certificate for a look-alike domain, High.** Certificate Transparency shows a certificate from the last 30 days for a look-alike already reported under EASM-BRAND-001. It runs whenever look-alike checks are on.
+* **EASM-BRAND-004 Look-alike site copies yours.** High when it serves your exact site icon (with its Shodan favicon hash, to search for more copies) or a password form under your name or title; Medium when only the title matches. Its own switch, *Also visit the look-alike web sites*, is needed, because it connects to servers someone else, possibly an attacker, runs.
+* **EASM-BRAND-006 Internal package name anyone could publish (dependency confusion):** package names your own sites reveal in source maps, package.json or requirements.txt are checked against npm and PyPI. High when the name is free; Medium for a scoped npm name. Needs active checks, and the registries see the names.
+* **EASM-MAIL-018 Address on a spam blocklist:** your mail servers, SPF addresses, domain and www are looked up on SpamCop and PSBL. High for a mail address, Medium for a web-only one. Spamhaus is not used: it refuses lookups through public resolvers without a paid DQS key.
+
+*Not built, by design:* writing to buckets to test them, guessing other people's bucket names, open-relay tests that ask your mail server to relay, exploit checks, and scanning public container images. The reasons are in the pull requests.
+
+*Network-service checks.* These are part of the active checks, under a new *Check network services* switch that is on by default once active checks are on. They send one read-only request each, and only to ports that exposure data reports open on your own addresses.
+
+* **EASM-EXP-006 Database, cache or control API answers without a password, High:** Redis INFO, Memcached stats, Elasticsearch, MongoDB listDatabases, the Docker API, the Kubernetes kubelet, and anonymous FTP.
+* **EASM-DNS-010 Zone transfer allowed, High:** one of your own nameservers hands out the whole zone (AXFR).
+* **EASM-DNS-011 Open DNS resolver, Medium.**
+* **EASM-TLS-010 Weak TLS cipher suites, Medium:** NULL, export, RC4, DES, 3DES or anonymous suites, found with a handshake that offers nothing else.
+* **EASM-EXP-010 NTLM sign-in reveals internal Windows details, Low:** the Active Directory domain, computer name and Windows build.
+* **EASM-CLOUD-006 Cloud load balancer with no healthy backend, Medium:** AWS ELB, Azure Traffic Manager or Front Door answering 502, 503 or 504.
+* **EASM-CLOUD-007 Serverless function or API endpoint without authentication:** a Lambda URL, API Gateway, Cloud Run or Cloud Functions endpoint returns JSON data. High with real data, otherwise Medium.
+* **EASM-EXP-008 Origin reachable around the CDN, High:** a site behind a CDN is also served directly by one of your own addresses, which bypasses the WAF.
+* **EASM-EXP-009 Default SNMP password, High.** This one has its own switch, **off by default**, because it tries the communities public and private, which is a password attempt.
+
+*Web and mail checks.* These are part of the opt-in active checks: they stay within your own networks, never touch private addresses, and only read. The one non-GET request is a GraphQL introspection query, which only asks for the schema.
+
+* **EASM-WEB-005 Directory listing** now has its own rule: High when the listing offers archives, dumps or backups, otherwise Medium. It was part of EASM-WEB-002, so an open listing finding there closes and reappears under this rule.
+* **EASM-WEB-006 API documentation or GraphQL schema is public:** Swagger UI and GraphQL introspection are Medium, and a bare API description is Low. Everything is Low on hosts named like dev, test or staging systems. The /swagger.json, /openapi.json and /v3/api-docs checks move here from EASM-WEB-002.
+* **EASM-WEB-007 CORS trusts any site with credentials, High:** a made-up Origin is echoed back with Access-Control-Allow-Credentials: true.
+* **EASM-WEB-008 Debug mode:** interactive debuggers and environment dumps (Werkzeug, Laravel Ignition, Symfony profiler, Django and Whoops debug pages) are High, ASP.NET detailed errors are Medium, and exact version headers are Low.
+* **EASM-WEB-009 Script from a domain anyone can register, High:** the home page loads JavaScript from a lapsed domain.
+* **EASM-WEB-010 Session cookie without Secure or HttpOnly:** Medium on login pages, Low elsewhere.
+* **EASM-WEB-011 Missing security headers** (CSP, X-Frame-Options, nosniff): Low, or Medium when a login page can be framed.
+* **EASM-MAIL-017 MTA-STS policy is unusable, Medium:** the TXT record exists, but the policy file is missing, has an invalid certificate, or is malformed.
+* **EASM-TLS-011 Default certificate reveals internal host names, Low:** asked without SNI, a server shows a certificate naming corp, local or internal hosts, or names under your domain the scan has not seen.
+* **Fixed:** login-portal, subdomain-takeover, security.txt, HSTS and weak-certificate findings were closed by any scan that ran without active checks. Now only a web check that ran can close them.
+
+*DNS and certificate checks.* These are passive: they use DNS, registration data and Certificate Transparency, which the scan already reads, plus one direct question to a delegated zone's nameservers, as any resolver asks.
 
 * **EASM-DNS-008 Delegated zone can be taken over (dangling NS), High.** A part of your domain is delegated to nameservers that either no longer serve it, which matters most on providers such as Route 53 or Azure DNS where anyone can create the zone, or that sit on a domain that is not registered. When resolvers only answer SERVFAIL, the delegation is read from your own nameservers. A nameserver domain that is registered but withdrawn from DNS (on hold) is Medium.
 * **EASM-DNS-009 Mail server on a lapsed or missing name (dangling MX).** High when the mail server's domain is not registered, so anyone could register it and receive your mail; Medium when it is on hold; Low when the mail server name simply does not exist.
