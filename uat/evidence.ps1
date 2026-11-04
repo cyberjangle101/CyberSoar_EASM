@@ -19,7 +19,7 @@ $vw = Connect-Agent $B 'uatviewer' "${pw}vw"
 # --- EV-1: first-scan options on the add form
 $d = (Invoke-Page $a $B '/').b
 Check 'EV-1.1' 'add form shows First scan tick boxes' (($d -match 'name="first_active"') -and ($d -match 'name="first_shots"') -and ($d -match 'name="first_verify"') -and ($d -match 'Active scanning enabled') -and ($d -match 'Screenshots enabled'))
-$add = Post $a '/targets' @{ domain = 'acme-corp.test'; asns = 'AS64500'; keywords = 'ACME'; first_active = '1'; first_shots = '1'; first_verify = '1' }
+$null = Post $a '/targets' @{ domain = 'acme-corp.test'; asns = 'AS64500'; keywords = 'ACME'; first_active = '1'; first_shots = '1'; first_verify = '1' }
 $tp = (Invoke-Page $a $B '/targets/1').b
 Check 'EV-1.2' 'confirmation lists the chosen first-scan options' ((Flash $tp) -match 'First scan: active scanning, screenshots, confirm open ports') (Flash $tp)
 Check 'EV-1.3' 'screenshots without Chrome/Edge on the lab path give a clear warning, or none if a browser exists' ($true) ([regex]::Matches($tp, '(?s)class="flash warn[^"]*"[^>]*>(.*?)</div>') | ForEach-Object { ($_.Groups[1].Value -replace '<[^>]+>', '').Trim() } | Select-Object -First 1)

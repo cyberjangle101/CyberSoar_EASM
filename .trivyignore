@@ -1,0 +1,14 @@
+# Trivy findings accepted on purpose, each with the reason. container.yml passes this file to the
+# configuration scan of the Dockerfile and the rendered Kubernetes manifests. Remove a line to see it again.
+
+# DS-0026 (Dockerfile has no HEALTHCHECK). The image is distroless, with no shell or curl to run one, and
+# Kubernetes ignores HEALTHCHECK: deploy/kubernetes has startup, liveness and readiness probes on /healthz.
+DS-0026
+
+# KSV-0011 (no CPU limit). Deliberate: a CPU limit throttles the agent even when the node is idle, which
+# slows scans. The container has a CPU request and a memory limit (1Gi), which protects the node.
+KSV-0011
+
+# KSV-0125 (image from an "untrusted registry"). Trivy's default allowlist does not include ghcr.io. The
+# image is this project's own, pinned by digest, and its build provenance is verified in the release UAT.
+KSV-0125

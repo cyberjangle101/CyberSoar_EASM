@@ -100,6 +100,34 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: '"$RUNNER_TEMP/zizmor/bin/zizmor" --format github .github/workflows'
 
+  # The UAT scripts are PowerShell, which CodeQL does not analyse. Same pinning approach as the
+  # other tools: a checksum-verified package from the PowerShell Gallery, not a third-party action.
+  powershell:
+    name: PowerShell analysis (PSScriptAnalyzer)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install PSScriptAnalyzer (checksum-verified package)
+        env:
+          PSSA_VERSION: "1.24.0"
+          PSSA_SHA256: e86c97d44bb1bc8a1de35e753b85ea1d938f6f9f881639a181507e079bca4556
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/pssa.zip" "https://www.powershellgallery.com/api/v2/package/PSScriptAnalyzer/${PSSA_VERSION}"
+          echo "${PSSA_SHA256}  $RUNNER_TEMP/pssa.zip" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/PSScriptAnalyzer" && unzip -q "$RUNNER_TEMP/pssa.zip" -d "$RUNNER_TEMP/PSScriptAnalyzer"
+      # Every Error and Warning rule, with the exclusions and reasons in uat/PSScriptAnalyzerSettings.psd1.
+      - name: Analyse the UAT scripts
+        shell: pwsh
+        run: |
+          Import-Module "$env:RUNNER_TEMP/PSScriptAnalyzer/PSScriptAnalyzer.psd1" -ErrorAction Stop
+          $r = Invoke-ScriptAnalyzer -Path uat -Recurse -Settings uat/PSScriptAnalyzerSettings.psd1
+          foreach ($f in $r) { "::error file=uat/$($f.ScriptName),line=$($f.Line),title=$($f.RuleName)::$($f.Message -replace '\r?\n', ' ')" }
+          "$(@($r).Count) finding(s)"
+          if ($r) { exit 1 }
   # This advanced setup replaces CodeQL default setup (now disabled): GitHub rejects advanced uploads
   # while default setup is on. Same languages default setup covered.
   codeql:
@@ -121,6 +149,8 @@ jobs:
         uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           languages: go, javascript-typescript, actions
+          # The extended security suite: more security queries than the default, still precision-checked.
+          queries: security-extended
       - name: Build Go code for CodeQL
         uses: github/codeql-action/autobuild@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
       - name: Perform CodeQL analysis

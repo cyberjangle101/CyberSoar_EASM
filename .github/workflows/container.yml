@@ -102,6 +102,25 @@ jobs:
           # Pinned to a published release by digest, never a moving tag.
           grep -Eq 'image: ghcr.io/[^ ]+/easm-agent:[0-9]+\.[0-9]+\.[0-9]+@sha256:[0-9a-f]{64}$' "$RUNNER_TEMP/easm.yaml"
 
+      # Security misconfigurations in the Dockerfile and in what kubectl apply -k actually deploys (the
+      # rendered manifests: the raw files lack the namespace and image that kustomize adds). Accepted
+      # findings, each with its reason, are in .trivyignore. Fails on Medium and above.
+      - name: Scan the Dockerfile and manifests for misconfigurations (Trivy)
+        run: |
+          set -euo pipefail
+          mkdir -p scan "$RUNNER_TEMP/config"
+          cp Dockerfile "$RUNNER_TEMP/easm.yaml" .trivyignore "$RUNNER_TEMP/config/"
+          trivy() { docker run --rm -v trivy-cache:/root/.cache -v "$RUNNER_TEMP/config:/config:ro" -v "$PWD/scan:/out" "$TRIVY_IMAGE" "$@"; }
+          trivy config --ignorefile /config/.trivyignore --format sarif --output /out/trivy-config.sarif /config
+          trivy config --ignorefile /config/.trivyignore --format table --exit-code 1 --severity MEDIUM,HIGH,CRITICAL /config
+
+      - name: Upload the misconfiguration scan to code scanning
+        if: ${{ !cancelled() && hashFiles('scan/trivy-config.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          sarif_file: scan/trivy-config.sarif
+          category: container-config
+
   arm64:
     name: Container image (arm64)
     # A native arm64 runner: the published arm64 image is otherwise never started anywhere.

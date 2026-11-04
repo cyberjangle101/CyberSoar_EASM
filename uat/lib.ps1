@@ -21,14 +21,17 @@ function Get-SetupCode([string]$DataDir) {
 
 function New-Secret([int]$n = 24) { -join ((48..57) + (97..122) | Get-Random -Count $n | ForEach-Object { [char]$_ }) }
 
-function Start-Agent([string]$Exe, [string]$DataDir, [int]$Port, [string]$Passphrase, [string[]]$Extra = @()) {
+function Start-Agent {
+    # The passphrase is a random per-run test value (New-Secret) handed to the agent through its environment variable.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', 'Passphrase', Justification = 'Random per-run UAT value; the agent reads it from EASM_KEY_PASSPHRASE as a string')]
+    param([string]$Exe, [string]$DataDir, [int]$Port, [string]$Passphrase, [string[]]$Extra = @())
     $busy = $false; try { $null = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$Port/healthz" -TimeoutSec 2; $busy = $true } catch {}
     if ($busy) { throw "port $Port is already serving an agent (left over from an earlier run?); stop it first" }
     $env:EASM_KEY_PASSPHRASE = $Passphrase
     $cfg = Join-Path (Split-Path $DataDir) ("agent-$Port.yaml")
     Set-Content -Path $cfg -Encoding ascii -Value ("logging:`r`n  level: info`r`n  file: " + (($DataDir -replace '\\', '/') + "/agent.log"))
-    $args = @('-data-dir', $DataDir, '-listen', "127.0.0.1:$Port", '-plain-http', '-config', $cfg) + $Extra
-    $p = Start-Process -FilePath $Exe -ArgumentList $args -PassThru -WindowStyle Hidden
+    $argList = @('-data-dir', $DataDir, '-listen', "127.0.0.1:$Port", '-plain-http', '-config', $cfg) + $Extra
+    $p = Start-Process -FilePath $Exe -ArgumentList $argList -PassThru -WindowStyle Hidden
     Remove-Item Env:EASM_KEY_PASSPHRASE
     for ($i = 0; $i -lt 60; $i++) {
         Start-Sleep -Milliseconds 500
@@ -52,7 +55,11 @@ function Invoke-Page($Session, [string]$Base, [string]$Path, [hashtable]$Form = 
     }
 }
 
-function Connect-Agent([string]$Base, [string]$User, [string]$Password) {
+function Connect-Agent {
+    # Signs in through the web form, which takes the password as plain text; the values are random per-run test accounts.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', 'Password', Justification = 'Random per-run UAT account, posted to the sign-in form as text')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingUsernameAndPasswordParams', '', Justification = 'Random per-run UAT account, posted to the sign-in form as text')]
+    param([string]$Base, [string]$User, [string]$Password)
     $s = New-Object Microsoft.PowerShell.Commands.WebRequestSession
     $lg = Invoke-Page $s $Base '/login'
     $r = Invoke-Page $s $Base '/login' @{ csrf = (Get-Csrf $lg.b); username = $User; password = $Password }
