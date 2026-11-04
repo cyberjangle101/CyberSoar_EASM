@@ -196,6 +196,7 @@ type Event struct {
 	Host     string `json:"host"`
 	Detail   string `json:"detail"`
 	Notified bool   `json:"-"`
+	Delivery string `json:"-"` // what happened to the alert: email, log (email not set up), muted, baseline, or legacy (before 1.9.18)
 	NoAlert  bool   `json:"-"` // record the event but do not email it (not a baseline event either)
 	Baseline bool   `json:"baseline"`
 }
@@ -262,6 +263,8 @@ var migrateStmts = []string{
 	`UPDATE findings SET scan_sev=severity WHERE scan_sev=''`,
 	// accounts: sign-in kind (local|ad), two-factor, state
 	`ALTER TABLE events ADD COLUMN muted INTEGER NOT NULL DEFAULT 0`,
+	// how each event's alert was delivered; rows from before 1.9.18 are "legacy": nobody recorded it
+	`ALTER TABLE events ADD COLUMN delivery TEXT NOT NULL DEFAULT 'legacy'`,
 	`ALTER TABLE records ADD COLUMN misses INTEGER NOT NULL DEFAULT 0`,
 	`ALTER TABLE records ADD COLUMN gone TEXT NOT NULL DEFAULT ''`,
 	`ALTER TABLE subdomains ADD COLUMN gone TEXT NOT NULL DEFAULT ''`,
@@ -777,9 +780,10 @@ func (s *Store) PendingEvents() ([]Event, error) {
 	return out, rows.Err()
 }
 
-// MarkNotified marks events as emailed.
-func (s *Store) MarkNotified(maxID int64) error {
-	_, err := s.db.Exec(`UPDATE events SET notified=1 WHERE notified=0 AND id<=?`, maxID)
+// MarkNotified marks queued events as handled and records how: "email" when an alert email went
+// out, "log" when email is not set up and the alert was only written to the log.
+func (s *Store) MarkNotified(maxID int64, how string) error {
+	_, err := s.db.Exec(`UPDATE events SET notified=1, delivery=? WHERE notified=0 AND id<=?`, how, maxID)
 	return err
 }
 
@@ -1092,7 +1096,7 @@ func (s *Store) ListEvents(f EventFilter) ([]Event, int, error) {
 		f.Limit = 100
 	}
 	//nolint:gosec // G202: SQL text is built only from fixed fragments; every value is a bound parameter
-	rows, err := s.db.Query(`SELECT id, ts, root, kind, severity, host, detail, notified, baseline FROM events WHERE `+w+` ORDER BY id DESC LIMIT ? OFFSET ?`,
+	rows, err := s.db.Query(`SELECT id, ts, root, kind, severity, host, detail, notified, baseline, delivery FROM events WHERE `+w+` ORDER BY id DESC LIMIT ? OFFSET ?`,
 		append(args, f.Limit, f.Offset)...)
 	if err != nil {
 		return nil, 0, err
@@ -1102,7 +1106,7 @@ func (s *Store) ListEvents(f EventFilter) ([]Event, int, error) {
 	for rows.Next() {
 		var e Event
 		var n, b int
-		if err := rows.Scan(&e.ID, &e.TS, &e.Root, &e.Kind, &e.Severity, &e.Host, &e.Detail, &n, &b); err != nil {
+		if err := rows.Scan(&e.ID, &e.TS, &e.Root, &e.Kind, &e.Severity, &e.Host, &e.Detail, &n, &b, &e.Delivery); err != nil {
 			return nil, 0, err
 		}
 		e.Notified, e.Baseline = n == 1, b == 1
@@ -1448,14 +1452,14 @@ func (t *Tx) ResolveFinding(id int64, now string) error {
 
 // AddEvent queues an event. silent events (baseline inventory) are stored as already notified.
 func (t *Tx) AddEvent(e Event, silent bool) error {
-	n, base, muted := 0, 0, 0
+	n, base, muted, how := 0, 0, 0, ""
 	if silent {
-		n, base, muted = 1, 1, 1
+		n, base, muted, how = 1, 1, 1, "baseline"
 	} else if e.NoAlert {
-		n, muted = 1, 1
+		n, muted, how = 1, 1, "muted"
 	}
-	_, err := t.tx.Exec(`INSERT INTO events(ts,root,kind,severity,host,detail,notified,baseline,muted) VALUES(?,?,?,?,?,?,?,?,?)`,
-		e.TS, e.Root, e.Kind, e.Severity, e.Host, e.Detail, n, base, muted)
+	_, err := t.tx.Exec(`INSERT INTO events(ts,root,kind,severity,host,detail,notified,baseline,muted,delivery) VALUES(?,?,?,?,?,?,?,?,?,?)`,
+		e.TS, e.Root, e.Kind, e.Severity, e.Host, e.Detail, n, base, muted, how)
 	return err
 }
 

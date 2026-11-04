@@ -41,11 +41,10 @@ function Start-Agent {
     throw "agent $Exe did not start on $Port (exited=$($p.HasExited))"
 }
 
-# A domain's page: /targets/{id} redirects to /findings?target={domain} (from v1.9.18), so follow it.
+# A domain's page: /targets/{id} redirects to /findings?target={domain} (from v1.9.18). Follow it here:
+# Invoke-Page turns redirects off, and Windows PowerShell 5.1 then throws on a GET redirect without the response.
 function Get-TargetPage($Session, [string]$Base, $Id) {
-    $r = Invoke-Page $Session $Base "/targets/$Id"
-    if ($r.c -eq 301 -and $r.l) { $r = Invoke-Page $Session $Base $r.l }
-    return $r.b
+    (Invoke-WebRequest -UseBasicParsing -WebSession $Session -Uri "$Base/targets/$Id" -MaximumRedirection 2 -ErrorAction Stop).Content
 }
 
 function Get-Csrf([string]$html) { if ($html -match 'name="csrf" value="([0-9a-f]+)"') { $Matches[1] } }
