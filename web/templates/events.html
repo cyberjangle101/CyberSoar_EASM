@@ -11,13 +11,18 @@
   <button class="btn" type="submit">Apply</button>
 </form>
 <section class="card">
-  <p class="muted small">{{.Total}} event(s). Alerts are emailed once; "sent" shows whether that has happened.</p>
+  <p class="muted small">{{.Total}} event(s). The Email column says what happened to each alert: <strong>sent</strong> by email, <strong>queued</strong> for the next email, <strong>not sent</strong> because email is not set up (it went to the log), or <strong>not alerted</strong> by a rule.{{if not .SMTPOn}} Email is not set up{{if .IsAdmin}}: <a href="/settings#smtp">configure it</a>{{end}}.{{end}}</p>
   {{if .Events}}
   <div class="scroll"><table>
     <thead><tr><th>When</th><th>Severity</th><th>Domain</th><th>Type</th><th>Host</th><th>Detail</th><th>Email</th></tr></thead>
     <tbody>{{range .Events}}<tr>
       <td>{{ts .TS}}</td><td><span class="badge {{sevClass .Severity}}">{{upper .Severity}}</span></td><td>{{.Root}}</td><td>{{.Kind}}</td><td class="mono">{{.Host}}</td><td class="mono small">{{.Detail}}</td>
-      <td>{{if .Baseline}}<span class="muted">baseline</span>{{else if .Notified}}sent{{else}}<span class="badge warn">queued</span>{{end}}</td>
+      <td>{{if .Baseline}}<span class="muted">baseline</span>
+        {{else if not .Notified}}<span class="badge warn">queued</span>
+        {{else if eq .Delivery "email"}}<span class="badge good">sent</span>
+        {{else if eq .Delivery "log"}}<span class="badge muted" title="Email was not set up when this alert was due, so it was written to the agent's log instead.">not sent</span>
+        {{else if eq .Delivery "muted"}}<span class="muted" title="This kind of change is recorded but never alerted.">not alerted</span>
+        {{else}}<span class="muted" title="Recorded before version 1.9.18, which did not keep whether an email went out.">not recorded</span>{{end}}</td>
     </tr>{{end}}</tbody>
   </table></div>
   {{if gt .Pages 1}}<nav class="pager">

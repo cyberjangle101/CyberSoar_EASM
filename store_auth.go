@@ -183,7 +183,7 @@ func (s *Store) ExpireAcceptances(now time.Time) (int, error) {
 			return 0, err
 		}
 		detail := fmt.Sprintf("Accepted risk expired (accepted by %s: %q), finding is open again: %s", e.by, e.reason, e.detail)
-		if _, err := s.db.Exec(`INSERT INTO events(ts,root,kind,severity,host,detail,notified,baseline) VALUES(?,?,?,?,?,?,0,0)`,
+		if _, err := s.db.Exec(`INSERT INTO events(ts,root,kind,severity,host,detail,notified,baseline,delivery) VALUES(?,?,?,?,?,?,0,0,'')`,
 			nowUTC(), e.root, "finding-reopened", e.sev, e.host, detail); err != nil {
 			return 0, err
 		}

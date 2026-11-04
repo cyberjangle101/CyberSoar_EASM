@@ -45,7 +45,8 @@ func (s *Scanner) FlushAlerts(ctx context.Context) {
 		for _, e := range events {
 			s.log.Warn("ALERT (smtp disabled)", "severity", e.Severity, "type", e.Kind, "domain", e.Root, "host", e.Host, "detail", e.Detail)
 		}
-		if err := s.store.MarkNotified(maxID); err != nil {
+		// Handled, so it does not queue forever, but recorded as "log": no email went out.
+		if err := s.store.MarkNotified(maxID, "log"); err != nil {
 			s.log.Error("marking events notified failed", "err", err)
 		}
 		return
@@ -58,7 +59,7 @@ func (s *Scanner) FlushAlerts(ctx context.Context) {
 		s.log.Error("alert delivery failed; events stay queued and will be retried", "events", len(events), "err", err)
 		return
 	}
-	if err := s.store.MarkNotified(maxID); err != nil {
+	if err := s.store.MarkNotified(maxID, "email"); err != nil {
 		s.log.Error("marking events notified failed (duplicates possible next cycle)", "err", err)
 		return
 	}

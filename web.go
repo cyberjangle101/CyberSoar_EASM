@@ -1330,8 +1330,12 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request, sess *Session) {
 			base.Set(k, v)
 		}
 	}
+	smtpOn := false
+	if st, err := s.store.LoadSettings(); err == nil {
+		smtpOn = st.SMTPEnabled
+	}
 	s.render(w, r, sess, "events", http.StatusOK, map[string]any{
-		"Title": "Events", "Nav": "events", "Events": evs, "Total": total, "Page": page, "Pages": pages,
+		"Title": "Events", "Nav": "events", "Events": evs, "Total": total, "Page": page, "Pages": pages, "SMTPOn": smtpOn,
 		"Targets": names, "Kinds": eventKinds, "F": f, "BaseQuery": base.Encode(),
 	})
 }
