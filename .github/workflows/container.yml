@@ -1,0 +1,134 @@
+name: Container
+
+# Build the container image and check the Kubernetes manifests on every pull request and
+# every push to main, so a broken Dockerfile, a vulnerable base image or an invalid manifest
+# shows a red check before it merges. The Release workflow builds the published image from
+# the signed binaries, scans it again, and runs the full Docker and Kubernetes UAT on rc tags.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Job names are meant to be required status checks on main: keep them stable.
+permissions:
+  contents: read
+
+concurrency:
+  group: container-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Trivy runs from its image, pinned by digest, not from an action: the repository only allows
+  # GitHub-owned and verified-creator actions, and a digest cannot be re-pointed like a tag.
+  # Keep in step with release.yml.
+  TRIVY_IMAGE: aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+  VERSION: 0.0.0-ci
+
+jobs:
+  image:
+    name: Container image (build, scan, manifests)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # upload the image scan to code scanning
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable # same toolchain as release.yml
+          check-latest: true
+          cache: true
+
+      # The same Dockerfile as a release, fed a locally built binary instead of the signed one.
+      - name: Build the image (linux/amd64)
+        run: |
+          mkdir -p dist
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o dist/easm-agent-linux-amd64 .
+          docker build --platform linux/amd64 --build-arg "VERSION=${VERSION}" -t easm-agent:ci .
+
+      - name: "Run it: version, non-root user, managed mode, hardened first start"
+        run: |
+          set -euo pipefail
+          test "$(docker run --rm easm-agent:ci -version)" = "easm-agent ${VERSION}"
+          cfg=$(docker image inspect easm-agent:ci --format '{{.Config.User}} {{json .Config.Env}}')
+          echo "$cfg"
+          echo "$cfg" | grep -q '^65532:65532 ' && echo "$cfg" | grep -q 'EASM_MANAGED=1'
+          openssl rand -hex 24 > "$RUNNER_TEMP/passphrase"
+          chmod 0644 "$RUNNER_TEMP/passphrase" # the container user (65532) reads it
+          docker run -d --name easm --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges \
+            -e EASM_KEY_PASSPHRASE_FILE=/run/secrets/passphrase -v "$RUNNER_TEMP/passphrase:/run/secrets/passphrase:ro" \
+            -p 127.0.0.1:8443:8443 easm-agent:ci
+          for _ in $(seq 60); do curl -skf https://127.0.0.1:8443/healthz && break; sleep 2; done
+          curl -skf https://127.0.0.1:8443/setup | grep -q 'name="code"' || { docker logs easm; exit 1; }
+          docker rm -f easm
+
+      # The report covers everything in the image and goes to code scanning. The gate fails on
+      # fixable High and Critical vulnerabilities in the image's operating-system packages; the Go
+      # program itself is gated by govulncheck in the release, which knows what code is reachable.
+      - name: Scan the image (Trivy)
+        run: |
+          set -euo pipefail
+          mkdir -p scan # in the workspace: hashFiles below only sees files there
+          trivy() { docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache -v "$PWD/scan:/out" "$TRIVY_IMAGE" "$@"; }
+          trivy image --format sarif --output /out/trivy.sarif easm-agent:ci
+          trivy image --skip-db-update --format table --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed --pkg-types os easm-agent:ci
+
+      - name: Upload the scan to code scanning
+        if: ${{ !cancelled() && hashFiles('scan/trivy.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          sarif_file: scan/trivy.sarif
+          category: container-image
+
+      - name: Install kubeconform (checksum-verified release)
+        env:
+          KUBECONFORM_VERSION: v0.8.0
+          KUBECONFORM_SHA256: 9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/kubeconform.tar.gz" \
+            "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          echo "${KUBECONFORM_SHA256}  $RUNNER_TEMP/kubeconform.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/kubeconform.tar.gz" -C "$RUNNER_TEMP" kubeconform
+
+      - name: Render and validate the Kubernetes manifests
+        run: |
+          set -euo pipefail
+          kubectl kustomize deploy/kubernetes > "$RUNNER_TEMP/easm.yaml"
+          "$RUNNER_TEMP/kubeconform" -strict -summary "$RUNNER_TEMP/easm.yaml"
+          # Pinned to a published release by digest, never a moving tag.
+          grep -Eq 'image: ghcr.io/[^ ]+/easm-agent:[0-9]+\.[0-9]+\.[0-9]+@sha256:[0-9a-f]{64}$' "$RUNNER_TEMP/easm.yaml"
+
+  arm64:
+    name: Container image (arm64)
+    # A native arm64 runner: the published arm64 image is otherwise never started anywhere.
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          check-latest: true
+          cache: true
+
+      - name: Build and run the image (linux/arm64)
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o dist/easm-agent-linux-arm64 .
+          docker build --platform linux/arm64 --build-arg "VERSION=${VERSION}" -t easm-agent:ci .
+          test "$(docker run --rm easm-agent:ci -version)" = "easm-agent ${VERSION}"
+          openssl rand -hex 24 > "$RUNNER_TEMP/passphrase"
+          chmod 0644 "$RUNNER_TEMP/passphrase"
+          docker run -d --name easm --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges \
+            -e EASM_KEY_PASSPHRASE_FILE=/run/secrets/passphrase -v "$RUNNER_TEMP/passphrase:/run/secrets/passphrase:ro" \
+            -p 127.0.0.1:8443:8443 easm-agent:ci
+          for _ in $(seq 60); do curl -skf https://127.0.0.1:8443/healthz && break; sleep 2; done
+          curl -skf https://127.0.0.1:8443/healthz || { docker logs easm; exit 1; }
+          docker rm -f easm
