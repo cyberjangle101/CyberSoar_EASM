@@ -32,7 +32,7 @@ $null = Invoke-Page $a $B '/users' @{ csrf = (Get-Csrf $u.b); username = 'uatana
 $an = Connect-Agent $B 'uatanalyst' "${pw}an"
 
 # --- SCAN-1: first scan of a domain
-$null = Post $a '/targets' @{ domain = 'acme-corp.test'; asns = 'AS64500'; keywords = 'ACME' }
+$add = Post $a '/targets' @{ domain = 'acme-corp.test'; asns = 'AS64500'; keywords = 'ACME' }
 $acme = TargetId $a 'acme-corp.test'
 Check 'SCAN-1.1' 'domain added and queued' (($add.c -eq 303) -and $acme)
 Check 'SCAN-1.2' 'first scan completes' (WaitIdle $a 'acme-corp.test')
