@@ -288,6 +288,72 @@ func TestNetworkServiceChecks(t *testing.T) {
 	}
 }
 
+// Control and data APIs that should need credentials: each answers one read-only request without
+// them and is reported; one that asks for credentials (Kibana here) is not.
+func TestControlAPIChecks(t *testing.T) {
+	l := newWebLab(t)
+	h := l.h
+	st, _ := h.store.LoadSettings()
+	st.InternetDBEnabled, st.ActiveServices = true, true
+	h.saveSettings(st)
+	l.setProber()
+	ip := "203.0.113.71"
+	l.host("ops.example.test", ip)
+	h.intel.idb[ip] = idbBody(ip, []int{6443, 5000, 8500, 5984, 8983, 8123, 5601, 9090}, nil, nil)
+	jsonAt := func(port int, routes map[string]string, hdr map[string]string) {
+		l.serve(ip, port, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body, ok := routes[r.URL.Path]
+			if !ok {
+				http.NotFound(w, r)
+				return
+			}
+			for k, v := range hdr {
+				w.Header().Set(k, v)
+			}
+			_, _ = fmt.Fprint(w, body)
+		}), nil, 0)
+	}
+	kubeCert := l.ca.leaf(t, -time.Hour, 90*24*time.Hour, "kubernetes")
+	l.serve(ip, 6443, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/namespaces" {
+			_, _ = fmt.Fprint(w, `{"kind":"NamespaceList","items":[{"metadata":{"name":"default"}}]}`)
+			return
+		}
+		http.NotFound(w, r)
+	}), &kubeCert, tls.VersionTLS12)
+	jsonAt(5000, map[string]string{"/v2/_catalog": `{"repositories":["api","billing","web"]}`}, nil)
+	jsonAt(8500, map[string]string{"/v1/agent/self": `{"Config":{"Datacenter":"dc1","NodeName":"ops"}}`}, nil)
+	jsonAt(5984, map[string]string{"/": `{"couchdb":"Welcome","version":"3.3.3"}`, "/_all_dbs": `["_users","orders"]`}, nil)
+	jsonAt(8983, map[string]string{"/solr/admin/cores": `{"responseHeader":{"status":0},"status":{"products":{}}}`}, nil)
+	jsonAt(8123, map[string]string{"/": "24.3.1.2\n"}, map[string]string{"X-ClickHouse-Summary": `{"read_rows":"1"}`})
+	l.serve(ip, 5601, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusUnauthorized) }), nil, 0)
+	jsonAt(9090, map[string]string{"/api/v1/status/config": `{"status":"success","data":{"yaml":"global: {}"}}`}, nil)
+
+	tg := h.addTarget("example.test", "AS64500")
+	h.scanN(tg.ID, 1)
+	for _, w := range []struct{ part, sev, text string }{
+		{"Kubernetes API server", "high", "namespaces"},
+		{"Docker registry", "high", "3 listed"},
+		{"Consul", "high", "key-value store"},
+		{"CouchDB", "high", "2 listed"},
+		{"Apache Solr", "high", "indexes"},
+		{"ClickHouse", "high", "24.3.1.2"},
+		{"Prometheus", "medium", "configuration"},
+	} {
+		f := l.findingFor("unauthenticated-datastore", w.part)
+		if f == nil {
+			t.Errorf("missing %s; open: %v", w.part, l.openKinds())
+			continue
+		}
+		if f.Severity != w.sev || !strings.Contains(f.Detail, w.text) {
+			t.Errorf("%s: severity %s, detail %q", w.part, f.Severity, f.Detail)
+		}
+	}
+	if f := l.findingFor("unauthenticated-datastore", "Kibana"); f != nil {
+		t.Errorf("Kibana asked for credentials but was reported: %s", f.Detail)
+	}
+}
+
 // serveCiphers is serve with a fixed list of cipher suites and TLS 1.2 at most.
 func (l *webLab) serveCiphers(ip string, port int, handler http.Handler, cert *tls.Certificate, suites []uint16) {
 	srv := httptest.NewUnstartedServer(handler)

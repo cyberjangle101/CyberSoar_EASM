@@ -558,7 +558,7 @@ func (s *Scanner) scanTarget(ctx context.Context, t *Target) error {
 			"directory-listing", "exposed-api-schema", "debug-mode-enabled", "cors-credential-leak", "insecure-auth-cookie", "missing-security-headers",
 			"second-order-script-takeover", "tls-sni-hostname-leak",
 			"unauthenticated-datastore", "dns-open-resolver", "dns-zone-transfer", "snmp-default-creds", "ntlm-info-leak", "tls-weak-cipher",
-			"orphaned-load-balancer", "exposed-function-url", "waf-origin-bypass", "dependency-confusion":
+			"orphaned-load-balancer", "exposed-function-url", "waf-origin-bypass", "dependency-confusion", "firebase-public", "secret-in-page":
 			// Only a web check that ran this scan can show these are gone. (Before 1.9.16 the
 			// login-portal, takeover, security.txt, HSTS and weak-certificate findings fell
 			// through to the DNS rule below, so switching active checks off closed them.)

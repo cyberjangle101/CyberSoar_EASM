@@ -15,7 +15,6 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -79,6 +78,8 @@ type Prober struct {
 type bucketURLs struct {
 	s3  func(bucket string) string
 	gcs func(bucket string) string
+	// rewrite redirects the other providers' request URLs (nil = unchanged).
+	rewrite func(u string) string
 }
 
 // NewProber creates a prober with the safe address policy.
@@ -123,19 +124,21 @@ type WebResult struct {
 	Listing    bool     // directory listing on /
 	ListingBig []string // archives, dumps and backups the listing offers ("" = none)
 	Hits       []PathHit
-	Schemas    []PathHit   // API descriptions, Swagger UI and GraphQL introspection that answered (EASM-WEB-006)
-	Debug      []PathHit   // debuggers, error pages with stack traces and version headers (EASM-WEB-008)
-	CORS       string      // the reflected test origin when credentials are allowed too ("" = not reflected)
-	CORSKnown  bool        // the CORS request was answered
-	Cookies    []string    // session/auth cookies missing Secure or HttpOnly, e.g. "sid (no HttpOnly)"
-	NoHeaders  []string    // baseline security headers a 2xx HTML page does not send
-	NoFrameOpt bool        // neither X-Frame-Options nor CSP frame-ancestors
-	Scripts    []string    // external hosts the home page loads scripts from
-	RootJSON   string      // the home page is JSON: "data", "small", "error", or "" (not JSON)
-	Portals    []PortalHit // sign-in pages and consoles recognised (portals.go)
-	SecTxt     string      // apex and www over HTTPS only: "present", "missing", or "" (not checked)
-	Takeover   string      // the unclaimed service page shown, e.g. "GitHub Pages via x.github.io" ("" = none)
-	rootBody   []byte      // the home page, kept only until the takeover check has run
+	Schemas    []PathHit    // API descriptions, Swagger UI and GraphQL introspection that answered (EASM-WEB-006)
+	Debug      []PathHit    // debuggers, error pages with stack traces and version headers (EASM-WEB-008)
+	CORS       string       // the reflected test origin when credentials are allowed too ("" = not reflected)
+	CORSKnown  bool         // the CORS request was answered
+	Cookies    []string     // session/auth cookies missing Secure or HttpOnly, e.g. "sid (no HttpOnly)"
+	NoHeaders  []string     // baseline security headers a 2xx HTML page does not send
+	NoFrameOpt bool         // neither X-Frame-Options nor CSP frame-ancestors
+	Scripts    []string     // external hosts the home page loads scripts from
+	RootJSON   string       // the home page is JSON: "data", "small", "error", or "" (not JSON)
+	Portals    []PortalHit  // sign-in pages and consoles recognised (portals.go)
+	SecTxt     string       // apex and www over HTTPS only: "present", "missing", or "" (not checked)
+	Storage    []storageRef // cloud storage the home page and the site's own scripts link to (EASM-CLOUD-001, -002, -008)
+	Secrets    []secretHit  // API keys and other secrets in them, masked (EASM-WEB-012)
+	Takeover   string       // the unclaimed service page shown, e.g. "GitHub Pages via x.github.io" ("" = none)
+	rootBody   []byte       // the home page, kept only until the takeover check has run
 	BodyHash   string
 	Err        string
 	TLSChecked bool
@@ -329,7 +332,9 @@ func (p *Prober) fetchFull(ctx context.Context, method, scheme, host, ip string,
 	defer tr.CloseIdleConnections()
 	cl := &http.Client{Transport: tr, Timeout: p.cfg.Timeout + 2*time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	u := url.URL{Scheme: scheme, Host: host, Path: path}
+	// A query string goes in RawQuery: in Path its "?" would be sent escaped (%3F) as part of the path.
+	p0, query, _ := strings.Cut(path, "?")
+	u := url.URL{Scheme: scheme, Host: host, Path: p0, RawQuery: query}
 	if (scheme == "http" && port != 80) || (scheme == "https" && port != 443) {
 		u.Host = net.JoinHostPort(host, fmt.Sprint(port))
 	}
@@ -531,6 +536,16 @@ func (p *Prober) probeWeb(ctx context.Context, host, ip string, port int, scheme
 	if root.Status >= 200 && root.Status < 300 && strings.Contains(strings.ToLower(root.Header.Get("Content-Type")), "html") {
 		wr.NoHeaders, wr.NoFrameOpt = missingHeaders(root.Header)
 		wr.Scripts = scriptHosts(root.Body, host)
+		if p.cfg.Buckets || p.cfg.Paths {
+			for _, a := range p.pageAssets(ctx, wr, root.Body) {
+				if p.cfg.Buckets {
+					wr.Storage = append(wr.Storage, pageStorage(a.Body, a.Where)...)
+				}
+				if p.cfg.Paths {
+					wr.Secrets = append(wr.Secrets, pageSecrets(a.Body, a.Where)...)
+				}
+			}
+		}
 	}
 	if d := versionHeaders(root.Header); d != "" {
 		wr.Debug = append(wr.Debug, PathHit{Path: "/", Why: d, Severity: "low"})
@@ -599,46 +614,18 @@ func (p *Prober) securityTxt(ctx context.Context, host, ip string) string {
 // BucketResult is what a storage check found.
 type BucketResult struct {
 	Provider, Name string
-	Public         bool // anyone can list the contents
-	Missing        bool // the bucket does not exist: anyone could create it and serve content under this name
-	Checked        bool // the provider answered, so a clean result means something
+	Public         bool   // anyone can list the contents
+	Missing        bool   // the bucket does not exist: anyone could create it and serve content under this name
+	Checked        bool   // the provider answered, so a clean result means something
+	Empty          bool   // a readable Firebase database that holds nothing yet
+	Via            string // the page or script that links to it ("" = found in DNS)
 }
 
-var s3HostRe = regexp.MustCompile(`^(.+?)\.s3[.-]([a-z0-9-]+\.)?amazonaws\.com\.?$`)
-
-// bucketsFor derives the storage buckets that DNS names point to.
-func bucketsFor(host string, cnames []string) []struct{ Provider, Name string } {
-	var out []struct{ Provider, Name string }
-	seen := map[string]bool{}
-	add := func(p, n string) {
-		if k := p + "/" + n; n != "" && !seen[k] {
-			seen[k] = true
-			out = append(out, struct{ Provider, Name string }{p, n})
-		}
-	}
-	for _, c := range cnames {
-		c = strings.ToLower(strings.TrimSuffix(c, "."))
-		if m := s3HostRe.FindStringSubmatch(c + "."); m != nil {
-			add("s3", m[1])
-		}
-		if c == "c.storage.googleapis.com" {
-			add("gcs", strings.ToLower(host))
-		}
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Provider+out[i].Name < out[j].Provider+out[j].Name })
-	return out
-}
-
-// checkBucket asks the provider about a bucket without credentials.
+// checkBucket asks the provider about a bucket (or database) without credentials.
 func (p *Prober) checkBucket(ctx context.Context, provider, name string) BucketResult {
 	br := BucketResult{Provider: provider, Name: name}
-	var u string
-	switch provider {
-	case "s3":
-		u = p.urls.s3(name)
-	case "gcs":
-		u = p.urls.gcs(name)
-	default:
+	u := p.storageListURL(provider, name)
+	if u == "" {
 		return br
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
@@ -655,15 +642,7 @@ func (p *Prober) checkBucket(ctx context.Context, provider, name string) BucketR
 	}
 	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, probeBody))
-	b := string(body)
-	switch {
-	case resp.StatusCode == 200 && strings.Contains(b, "<ListBucketResult"):
-		br.Checked, br.Public = true, true
-	case resp.StatusCode == 404 && strings.Contains(b, "NoSuchBucket"):
-		br.Checked, br.Missing = true, true
-	case resp.StatusCode == 403 || resp.StatusCode == 200 || resp.StatusCode == 301 || resp.StatusCode == 307:
-		br.Checked = true // exists, and is not listable
-	}
+	classifyStorage(&br, resp.StatusCode, string(body))
 	return br
 }
 

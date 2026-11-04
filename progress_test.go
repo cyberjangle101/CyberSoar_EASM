@@ -203,7 +203,7 @@ func TestProgressEndpointAndBars(t *testing.T) {
 	if err := json.Unmarshal([]byte(body), &list); err != nil || len(list) != 1 || list[0].Percent != 47 || list[0].Stage != "Resolving DNS" {
 		t.Fatalf("bad progress payload %q (%v)", body, err)
 	}
-	for _, path := range []string{"/", fmt.Sprintf("/targets/%d", tg.ID)} {
+	for _, path := range []string{"/", "/findings?target=" + tg.Domain} {
 		_, page, _ := b.get(path)
 		if !strings.Contains(page, `<progress max="100" value="47">`) || !strings.Contains(page, "Resolving DNS") || !strings.Contains(page, "20 of 40 hosts") {
 			t.Errorf("%s does not show the progress bar", path)

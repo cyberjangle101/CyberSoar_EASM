@@ -144,7 +144,7 @@ func findingCategory(kind string) string {
 		return "Email security"
 	case strings.HasPrefix(kind, "tls-"), kind == "domain-expiry", kind == "domain-unlocked", kind == "ct-unauthorized-ca":
 		return "Certificates & TLS"
-	case kind == "dangling-cname", kind == "dangling-ns", kind == "dangling-mx", kind == "bucket-takeover", kind == "bucket-public", kind == "cloud-datastore":
+	case kind == "dangling-cname", kind == "dangling-ns", kind == "dangling-mx", kind == "bucket-takeover", kind == "bucket-public", kind == "cloud-datastore", kind == "firebase-public":
 		return "Take-over & cloud storage"
 	case kind == "dns-wildcard", kind == "shadow-it-ct-subdomain", kind == "dns-zone-transfer", kind == "dns-open-resolver", kind == "ntlm-info-leak":
 		return "Ownership & network"
@@ -156,7 +156,7 @@ func findingCategory(kind string) string {
 		return "Exposed services & software"
 	case kind == "asn-unexpected", kind == "private-ip":
 		return "Ownership & network"
-	case kind == "lookalike-domain", kind == "leaked-credentials", kind == "repo-exposure", kind == "lookalike-tls-issued", kind == "phishing-clone", kind == "dependency-confusion":
+	case kind == "lookalike-domain", kind == "leaked-credentials", kind == "repo-exposure", kind == "secret-in-page", kind == "lookalike-tls-issued", kind == "phishing-clone", kind == "dependency-confusion":
 		return "Brand & data leakage"
 	case kind == "default-page", kind == "exposed-path", kind == "no-https-redirect", kind == "directory-listing", kind == "exposed-api-schema",
 		kind == "cors-credential-leak", kind == "debug-mode-enabled", kind == "second-order-script-takeover", kind == "insecure-auth-cookie", kind == "missing-security-headers":

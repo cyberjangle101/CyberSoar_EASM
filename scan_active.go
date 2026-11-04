@@ -178,6 +178,44 @@ func (s *Scanner) gatherActive(ctx context.Context, t *Target, hosts []string, r
 		return d.results[i].Port < d.results[j].Port
 	})
 
+	// EASM-CLOUD-001, -002, -008: storage the pages and scripts link to, which DNS did not name.
+	if cfg.Buckets && ctx.Err() == nil {
+		checked := map[string]bool{}
+		for _, b := range buckets {
+			checked[b.provider+"/"+b.name] = true
+		}
+		var linked []storageRef
+		var onHost []string
+		for _, wr := range d.results {
+			for _, sr := range wr.Storage {
+				if k := sr.Provider + "/" + sr.Name; !checked[k] && len(linked) < 40 {
+					checked[k] = true
+					linked, onHost = append(linked, sr), append(onHost, wr.Host)
+				}
+			}
+		}
+		for i, sr := range linked {
+			if ctx.Err() != nil {
+				break
+			}
+			sem <- struct{}{}
+			wg.Add(1)
+			go func(host string, sr storageRef) {
+				defer wg.Done()
+				defer func() { <-sem }()
+				br := pr.checkBucket(ctx, sr.Provider, sr.Name)
+				br.Via = sr.Via
+				mu.Lock()
+				d.buckets[host] = append(d.buckets[host], br)
+				if br.Checked {
+					d.scopes["bucket|"+host+"|"+sr.Name] = true
+				}
+				mu.Unlock()
+			}(onHost[i], sr)
+		}
+		wg.Wait()
+	}
+
 	// EASM-WEB-009: is every domain the pages load scripts from still registered?
 	reg := map[string]regState{}
 	for _, wr := range d.results {
@@ -355,6 +393,10 @@ func (s *Scanner) applyActive(tx *Tx, root string, d *activeData, now string, em
 			}
 			raise(k("debug-mode-enabled", debugSlug(h.Why)), "debug-mode-enabled", h.Severity, wr.Host, fmt.Sprintf("%s: %s.", at, h.Why), "")
 		}
+		for _, sh := range wr.Secrets {
+			raise(k("secret-in-page", sh.Hash), "secret-in-page", sh.Severity, wr.Host, fmt.Sprintf("%s contains %s: %s. Only this masked form is kept; open the page to see it.",
+				sh.Where, sh.What, sh.Masked), "")
+		}
 		if wr.CORS != "" {
 			raise(k("cors-credential-leak"), "cors-credential-leak", "high", wr.Host, fmt.Sprintf("%s answers a request from the made-up site %s with Access-Control-Allow-Origin set to that site "+
 				"and Access-Control-Allow-Credentials: true, so any web site can read its responses with the visitor's cookies.", wr.URL(), wr.CORS), "")
@@ -395,9 +437,29 @@ func (s *Scanner) applyActive(tx *Tx, root string, d *activeData, now string, em
 	for host, list := range d.buckets {
 		for _, b := range list {
 			key := "bucket:%s:" + host + ":" + b.Name
+			where := "behind " + host
+			if b.Via != "" {
+				where = "linked from " + b.Via
+			}
 			switch {
+			case b.Public && b.Provider == "firebase":
+				sev, what := "high", "anyone can read the data in it"
+				if b.Empty {
+					sev, what = "medium", "it is empty now, but anyone could read whatever is stored in it next"
+				}
+				raise(fmt.Sprintf(key, "firebase"), "firebase-public", sev, host, fmt.Sprintf("The Firebase Realtime Database %s, %s, answers without signing in: %s.", b.Name, where, what), "")
 			case b.Public:
-				raise(fmt.Sprintf(key, "public"), "bucket-public", "high", host, fmt.Sprintf("The %s storage bucket %q behind %s can be listed by anyone on the internet.", bucketProvider(b.Provider), b.Name, host), "")
+				// A bucket the site only links to may be a supplier's: High when its name carries the
+				// domain's name, otherwise Medium until someone confirms whose it is.
+				sev, note := "high", ""
+				if b.Via != "" && !strings.Contains(strings.ToLower(b.Name), domainLabel(root)) {
+					sev, note = "medium", " Check whether it is yours: the site links to it, but its name does not carry your domain's."
+				}
+				raise(fmt.Sprintf(key, "public"), "bucket-public", sev, host, fmt.Sprintf("The %s %s %q, %s, can be listed by anyone on the internet.%s",
+					bucketProvider(b.Provider), storageNoun(b.Provider), b.Name, where, note), "")
+			case b.Missing && b.Via != "":
+				raise(fmt.Sprintf(key, "takeover"), "bucket-takeover", "high", host, fmt.Sprintf("%s loads files from the %s bucket %q, which does not exist. "+
+					"Anyone can create it and serve their own files, scripts included, to visitors of your site.", b.Via, bucketProvider(b.Provider), b.Name), "")
 			case b.Missing:
 				raise(fmt.Sprintf(key, "takeover"), "bucket-takeover", "high", host, fmt.Sprintf("%s points at the %s bucket %q, which does not exist. Anyone can create it and publish content under your name.", host, bucketProvider(b.Provider), b.Name), "")
 			}
@@ -437,16 +499,6 @@ func titleNote(t string) string {
 		return ""
 	}
 	return ", \"" + t + "\""
-}
-
-func bucketProvider(p string) string {
-	switch p {
-	case "s3":
-		return "Amazon S3"
-	case "gcs":
-		return "Google Cloud Storage"
-	}
-	return p
 }
 
 func redirectsToHTTPS(w *WebResult) bool {

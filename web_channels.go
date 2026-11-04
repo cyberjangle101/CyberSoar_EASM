@@ -223,7 +223,7 @@ func (s *Server) suggestionAccept(w http.ResponseWriter, r *http.Request, sess *
 		s.eng.Wake()
 		s.flash(sess, "good", "Now monitoring "+nt.Domain+". Its first scan sets the baseline.")
 	}
-	s.backToTarget(w, r, t.ID)
+	s.backToTarget(w, r, t)
 }
 
 // suggestionDismiss hides a suggestion for good.
@@ -238,5 +238,5 @@ func (s *Server) suggestionDismiss(w http.ResponseWriter, r *http.Request, sess 
 	} else {
 		s.audit(sess, r, "suggestion.dismiss", dom, t.Domain)
 	}
-	s.backToTarget(w, r, t.ID)
+	s.backToTarget(w, r, t)
 }

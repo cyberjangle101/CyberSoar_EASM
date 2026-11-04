@@ -77,6 +77,112 @@ var datastoreChecks = map[int]struct {
 	10250: {"Kubernetes kubelet", (*Prober).kubeletOpen},
 	10255: {"Kubernetes kubelet (read-only port)", (*Prober).kubeletOpen},
 	21:    {"FTP", (*Prober).ftpAnonymous},
+	// Control and data APIs that are meant to sit behind authentication (added in 1.9.18).
+	6443: {"Kubernetes API server", (*Prober).kubeAPIOpen},
+	5000: {"Docker registry", (*Prober).registryOpen},
+	8500: {"Consul", (*Prober).consulOpen},
+	5984: {"CouchDB", (*Prober).couchOpen},
+	8983: {"Apache Solr", (*Prober).solrOpen},
+	8123: {"ClickHouse", (*Prober).clickhouseOpen},
+	5601: {"Kibana", (*Prober).kibanaOpen},
+	9090: {"Prometheus", (*Prober).prometheusOpen},
+}
+
+// datastoreSeverity lowers the rating for services that expose metadata rather than data (default High).
+var datastoreSeverity = map[int]string{9090: "medium"}
+
+// okJSON fetches path and reports whether it answered 200 with every marker in its body.
+func (p *Prober) okJSON(ctx context.Context, scheme, ip string, port int, path string, markers ...string) (*fetched, bool, error) {
+	r, err := p.httpJSON(ctx, scheme, ip, port, path)
+	if err != nil {
+		return nil, false, err
+	}
+	if r.Status != http.StatusOK {
+		return r, false, nil
+	}
+	for _, m := range markers {
+		if !bytes.Contains(r.Body, []byte(m)) {
+			return r, false, nil
+		}
+	}
+	return r, true, nil
+}
+
+func (p *Prober) kubeAPIOpen(ctx context.Context, ip string, port int) (string, error) {
+	if _, ok, err := p.okJSON(ctx, "https", ip, port, "/api/v1/namespaces", `"NamespaceList"`); err != nil || !ok {
+		return "", err
+	}
+	return "the Kubernetes API server lists its namespaces to anonymous users, so anyone can read (and possibly change) the cluster", nil
+}
+
+func (p *Prober) registryOpen(ctx context.Context, ip string, port int) (string, error) {
+	var lastErr error
+	for _, scheme := range []string{"https", "http"} {
+		r, ok, err := p.okJSON(ctx, scheme, ip, port, "/v2/_catalog?n=100", `"repositories"`)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		if ok {
+			var cat struct{ Repositories []string }
+			_ = json.Unmarshal(r.Body, &cat)
+			return fmt.Sprintf("the Docker registry lists its images without signing in (%d listed), so anyone can download them, and the secrets and code built into them", len(cat.Repositories)), nil
+		}
+		return "", nil
+	}
+	return "", lastErr
+}
+
+func (p *Prober) consulOpen(ctx context.Context, ip string, port int) (string, error) {
+	if _, ok, err := p.okJSON(ctx, "http", ip, port, "/v1/agent/self", `"Config"`, `"Datacenter"`); err != nil || !ok {
+		return "", err
+	}
+	return "the Consul agent API answers without a token, which exposes the service catalogue and key-value store and can allow running commands", nil
+}
+
+func (p *Prober) couchOpen(ctx context.Context, ip string, port int) (string, error) {
+	if _, ok, err := p.okJSON(ctx, "http", ip, port, "/", `"couchdb"`); err != nil || !ok {
+		return "", err
+	}
+	r, ok, err := p.okJSON(ctx, "http", ip, port, "/_all_dbs")
+	if err != nil || !ok || !bytes.HasPrefix(bytes.TrimSpace(r.Body), []byte("[")) {
+		return "", err
+	}
+	var dbs []string
+	_ = json.Unmarshal(r.Body, &dbs)
+	return fmt.Sprintf("CouchDB lists its databases without a password (%d listed), so anyone can read and change them", len(dbs)), nil
+}
+
+func (p *Prober) solrOpen(ctx context.Context, ip string, port int) (string, error) {
+	if _, ok, err := p.okJSON(ctx, "http", ip, port, "/solr/admin/cores?action=STATUS&wt=json", `"responseHeader"`, `"status"`); err != nil || !ok {
+		return "", err
+	}
+	return "the Apache Solr admin API answers without a password, so anyone can search, change or delete its indexes", nil
+}
+
+func (p *Prober) clickhouseOpen(ctx context.Context, ip string, port int) (string, error) {
+	r, err := p.httpJSON(ctx, "http", ip, port, "/?query=SELECT%20version()")
+	if err != nil {
+		return "", err
+	}
+	if r.Status == http.StatusOK && r.Header.Get("X-ClickHouse-Summary") != "" {
+		return "ClickHouse " + truncate(strings.TrimSpace(string(r.Body)), 30) + " runs queries without a password (its default user has none), so anyone can read and change its data", nil
+	}
+	return "", nil
+}
+
+func (p *Prober) kibanaOpen(ctx context.Context, ip string, port int) (string, error) {
+	if _, ok, err := p.okJSON(ctx, "http", ip, port, "/api/status", `"version"`, `"status"`); err != nil || !ok {
+		return "", err
+	}
+	return "Kibana answers without signing in, so anyone can search the Elasticsearch data behind it", nil
+}
+
+func (p *Prober) prometheusOpen(ctx context.Context, ip string, port int) (string, error) {
+	if _, ok, err := p.okJSON(ctx, "http", ip, port, "/api/v1/status/config", `"status":"success"`, `"yaml"`); err != nil || !ok {
+		return "", err
+	}
+	return "Prometheus shows its configuration and metrics without signing in, which maps the internal systems it monitors", nil
 }
 
 func (p *Prober) redisOpen(ctx context.Context, ip string, port int) (string, error) {

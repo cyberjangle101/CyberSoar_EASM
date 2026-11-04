@@ -1,6 +1,9 @@
-{{define "content"}}
+{{/* One domain's page is the Findings page filtered to it (/findings?target=…): these blocks add the
+     domain's header and scan controls, its settings at the top, and its inventory and history below. */}}
+{{define "domainHead"}}
 <div class="head">
   <div>
+    <p class="crumb small"><a href="/">Dashboard</a> › <a href="/findings">Findings</a> › {{.T.Domain}}</p>
     <h1>{{.T.Domain}} <span class="badge {{.StateClass}}">{{.State}}</span></h1>
     <p class="muted">Added {{ts .T.Created}} · last scan {{if .T.LastEnd}}{{ago .T.LastEnd}}{{else}}never{{end}} · next scan {{if .T.Enabled}}{{until .T.NextScan}}{{else}}paused{{end}}{{if .T.BaselinedAt}} · baseline set {{ts .T.BaselinedAt}}{{else}} · baseline not yet complete{{end}}</p>
     {{if .Prog}}{{template "progress" .Prog}}{{else if eq .State "Queued"}}<p class="muted small">Waiting for a free scan slot…</p>{{end}}
@@ -20,23 +23,24 @@
   </div>
   {{end}}
 </div>
+{{end}}
 
-<section class="card">
-  <h2>Findings</h2>
-  {{if .Findings}}
-  <div class="scroll"><table>
-    <thead><tr><th>Severity</th><th>Finding</th><th>Source of evidence</th><th>Risk</th><th>Recommended fix</th><th>First seen</th><th></th></tr></thead>
-    <tbody>{{range .Findings}}<tr class="{{if eq .Status "ack"}}dim{{end}}">
-      {{$i := finfo .}}<td><span class="badge {{sevClass .Severity}}">{{upper .Severity}}</span></td>
-      <td class="prose"><strong>{{$i.Title}}</strong>{{template "trustbadge" .}}<div class="mono">{{.Host}}</div><div class="small">{{.Detail}}</div></td>
-      <td class="prose small">{{$i.Source}}<div><a class="evlink" href="/findings/{{.ID}}/evidence">View evidence ›</a></div></td><td class="prose small">{{$i.Risk}}</td><td class="prose small">{{$i.Solution}}</td><td>{{ts .FirstSeen}}</td>
-      <td class="actions">{{if $.CanTriage}}{{template "triage" (tctx . $.CSRF (printf "/targets/%d" $.T.ID) $.IsAdmin)}}{{end}}</td>
-    </tr>{{end}}</tbody>
-  </table></div>
-  {{else}}<p class="muted">No open findings.</p>{{end}}
-  {{if .ResolvedCount}}<p class="muted small">{{.ResolvedCount}} earlier finding(s) were resolved automatically (the issue stopped appearing).</p>{{end}}
-</section>
+{{define "domainSettings"}}{{if .IsAdmin}}
+<details class="card settings-top" id="domain-settings">
+  <summary><h2>Settings for this domain</h2> <span class="muted small">Expected networks, ignored names, scan interval and notes</span></summary>
+  <form method="post" action="/targets/{{.T.ID}}/edit" class="grid inner"> {{/* nosemgrep: python.django.security.django-no-csrf-token.django-no-csrf-token -- Go template: the csrf hidden field is checked by s.auth or checkPreCSRF */}}
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label>Expected ASNs <textarea name="asns" rows="2" placeholder="AS13335, AS16509">{{asns .T.ExpectedASNs}}</textarea></label>
+    <label>Expected organisation keywords <textarea name="keywords" rows="2">{{lines .T.ExpectedOrgKeywords}}</textarea></label>
+    <label>Ignore subdomains (regex, one per line) <textarea name="ignore" rows="2">{{lines .T.IgnoreSubdomains}}</textarea></label>
+    <label>Scan every (minutes) <input name="interval" inputmode="numeric" value="{{if .T.IntervalMinutes}}{{.T.IntervalMinutes}}{{end}}" placeholder="default ({{.DefaultInterval}})"></label>
+    <label class="wide">Notes <input name="notes" maxlength="500" value="{{.T.Notes}}"></label>
+    <div class="wide"><button class="btn primary" type="submit">Save changes</button></div>
+  </form>
+</details>
+{{end}}{{end}}
 
+{{define "domainDetail"}}
 {{if .Suggestions}}<section class="card">
   <h2>Domains that may also be yours <span class="muted small">({{len .Suggestions}})</span></h2>
   <p class="muted small">Suggestions only: nothing is scanned unless you choose to monitor it. They come from shared certificates and shared addresses, so some will belong to other people.</p>
@@ -48,9 +52,9 @@
   </table></div>
 </section>{{end}}
 
-<section class="card">
+<section class="card" id="hosts">
   <div class="head"><h2>Hosts <span class="muted small">({{.InvTotal}}{{if .Q}} matching{{end}})</span></h2>
-    <form method="get" class="inline search"><input name="q" value="{{.Q}}" placeholder="Filter hosts…" aria-label="Filter hosts"><button class="btn small" type="submit">Filter</button></form></div>
+    <form method="get" action="/findings#hosts" class="inline search"><input type="hidden" name="target" value="{{.T.Domain}}"><input name="q" value="{{.Q}}" placeholder="Filter hosts…" aria-label="Filter hosts"><button class="btn small" type="submit">Filter</button></form></div>
   {{if .Inventory}}
   <div class="scroll"><table>
     <thead><tr><th>Host</th><th>Addresses &amp; owner</th><th>CNAME</th><th>Sources</th><th>First seen</th></tr></thead>
@@ -99,19 +103,6 @@
 </section>
 
 {{if .IsAdmin}}
-<section class="card">
-  <h2>Settings for this domain</h2>
-  <form method="post" action="/targets/{{.T.ID}}/edit" class="grid"> {{/* nosemgrep: python.django.security.django-no-csrf-token.django-no-csrf-token -- Go template: the csrf hidden field is checked by s.auth or checkPreCSRF */}}
-    <input type="hidden" name="csrf" value="{{.CSRF}}">
-    <label>Expected ASNs <textarea name="asns" rows="2" placeholder="AS13335, AS16509">{{asns .T.ExpectedASNs}}</textarea></label>
-    <label>Expected organisation keywords <textarea name="keywords" rows="2">{{lines .T.ExpectedOrgKeywords}}</textarea></label>
-    <label>Ignore subdomains (regex, one per line) <textarea name="ignore" rows="2">{{lines .T.IgnoreSubdomains}}</textarea></label>
-    <label>Scan every (minutes) <input name="interval" inputmode="numeric" value="{{if .T.IntervalMinutes}}{{.T.IntervalMinutes}}{{end}}" placeholder="default ({{.DefaultInterval}})"></label>
-    <label class="wide">Notes <input name="notes" maxlength="500" value="{{.T.Notes}}"></label>
-    <div class="wide"><button class="btn primary" type="submit">Save changes</button></div>
-  </form>
-</section>
-
 <section class="card danger">
   <h2>Remove this domain</h2>
   <p class="muted">Stops monitoring and permanently deletes all stored data for {{.T.Domain}} (hosts, records, certificates, findings, history).</p>

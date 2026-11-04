@@ -182,6 +182,12 @@ var findingCatalog = map[string]FindingInfo{
 		Risk:     "Without HttpOnly, any script injected into the page can read the session cookie and take over the account. Without Secure, the cookie is also sent over plain HTTP, where anyone on the network can read it.",
 		Solution: "Set HttpOnly and Secure (and SameSite=Lax or Strict) on session and sign-in cookies, usually a single setting in the framework or web server.",
 	},
+	"secret-in-page": {
+		Title:    "API key or secret in a public web page",
+		Source:   "Active check: the home page and the first five of the site's own scripts, matched against secret key formats (the value is not stored)",
+		Risk:     "Everything a web page or script contains is public. A live key in it lets anyone use the service it belongs to as you: read data, run up charges, send email or messages in your name, or reach your code and cloud. Automated scanners collect such keys within hours.",
+		Solution: "Revoke the key at the service now and issue a new one (removing it from the page is not enough: it has been public). Keep keys on the server side, behind your own API, and check the service's logs for use you do not recognise.",
+	},
 	"missing-security-headers": {
 		Title:    "Baseline security headers are missing",
 		Source:   "Active check: the response headers of the home page",
@@ -283,6 +289,12 @@ var findingCatalog = map[string]FindingInfo{
 		Source:   "Active check: a request to port 80 compared with port 443",
 		Risk:     "Visitors who type the address or follow an old link stay on unencrypted HTTP, where anyone on the network can read or change what they see.",
 		Solution: "Redirect all HTTP requests to HTTPS (a 301) and enable HSTS once HTTPS works everywhere.",
+	},
+	"firebase-public": {
+		Title:    "Firebase database can be read by anyone",
+		Source:   "Active check: an unauthenticated, read-only request for the top-level keys of a Firebase Realtime Database the site names",
+		Risk:     "The database's security rules let anyone on the internet read it, and often write to it. App databases like this hold user records, messages and tokens; open ones are found and copied by automated scanners.",
+		Solution: "Change the database's security rules so reads and writes need a signed-in user (\".read\": \"auth != null\" at the least, better per-user rules), then check what was exposed and whether anything was changed.",
 	},
 	"bucket-public": {
 		Title:    "Cloud storage bucket can be listed by anyone",

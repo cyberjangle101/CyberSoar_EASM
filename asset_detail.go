@@ -195,7 +195,7 @@ func (s *Server) detailHost(ctx context.Context, d *AssetDetail, host string) er
 			if d.Facts[i].K == "Belongs to" {
 				for _, t := range ts {
 					if t.Domain == d.Facts[i].V.T {
-						d.Facts[i].V.Href = fmt.Sprintf("/targets/%d", t.ID)
+						d.Facts[i].V.Href = domainURL(t)
 					}
 				}
 			}

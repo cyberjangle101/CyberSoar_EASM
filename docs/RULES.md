@@ -23,11 +23,12 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 | EASM-BRAND-004 | Look-alike site copies yours | `phishing-clone` | Active: visits look-alike sites (separate switch, off by default) | High when the look-alike serves the same favicon (Shodan's MurmurHash3 hash) or a password field on a page with your title or name, Medium when only the page title matches |
 | EASM-BRAND-005 | New certificate issued for a look-alike domain | `lookalike-tls-issued` | Passive: public sources (OSINT) | High (every reported look-alike accepts email or has a web address, see EASM-BRAND-001) |
 | EASM-BRAND-006 | Internal package name could be published by anyone | `dependency-confusion` | Active: the organisation's own web services, then npm and PyPI (separate switch, off by default) | High when the name does not exist on npm or PyPI; Medium for a scoped npm name (@scope/name), which is only claimable if the scope is not registered |
-| EASM-CLOUD-001 | Cloud storage bucket can be listed by anyone | `bucket-public` | Active: connects to the organisation's own servers (opt-in) | High |
+| EASM-CLOUD-001 | Cloud storage bucket can be listed by anyone | `bucket-public` | Active: connects to the organisation's own servers (opt-in) | High; Medium for a bucket the site only links to whose name does not carry the domain's name (it may be a supplier's) |
 | EASM-CLOUD-002 | Name points to a storage bucket that does not exist | `bucket-takeover` | Active: connects to the organisation's own servers (opt-in) | High |
 | EASM-CLOUD-003 | Managed database or cache named in public DNS | `cloud-datastore` | Passive: DNS | Medium |
 | EASM-CLOUD-006 | Cloud load balancer has no healthy backend | `orphaned-load-balancer` | Active: connects to the organisation's own servers (opt-in) | Medium |
 | EASM-CLOUD-007 | Serverless function or API endpoint answers without authentication | `exposed-function-url` | Active: connects to the organisation's own servers (opt-in) | High when the JSON answer carries data (two or more fields or items), otherwise Medium |
+| EASM-CLOUD-008 | Firebase database can be read by anyone | `firebase-public` | Active: connects to the organisation's own servers (opt-in) | High; Medium when the database is empty |
 | EASM-DNS-001 | Dangling CNAME (possible subdomain takeover) | `dangling-cname` | Passive: DNS | High on a claim-able platform (see takeover platforms, plus the can-i-take-over-xyz services that report NXDOMAIN), otherwise Low |
 | EASM-DNS-002 | Private address in public DNS | `private-ip` | Passive: DNS | Low |
 | EASM-DNS-003 | Address outside expected ownership | `asn-unexpected` | Passive: DNS | High |
@@ -46,7 +47,7 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 | EASM-EXP-003 | Address flagged as compromised or malicious | `ip-flagged` | Third-party intelligence (needs a second source to be trusted) | High when Shodan tags it, Medium when only SANS ISC reports it |
 | EASM-EXP-004 | End-of-life operating system or software | `eol-software` | Third-party intelligence (needs a second source to be trusted) | Medium |
 | EASM-EXP-005 | Address is a Tor exit node | `tor-exit` | Passive: Tor Project exit list (download) | Medium |
-| EASM-EXP-006 | Database, cache or control API answers without a password | `unauthenticated-datastore` | Active: connects to the organisation's own servers (opt-in) | High |
+| EASM-EXP-006 | Database, cache or control API answers without a password | `unauthenticated-datastore` | Active: connects to the organisation's own servers (opt-in) | High; Medium for Prometheus, which exposes configuration and metrics rather than data |
 | EASM-EXP-008 | Site behind a CDN can be reached directly at its origin | `waf-origin-bypass` | Active: connects to the organisation's own servers (opt-in) | High |
 | EASM-EXP-009 | Device accepts the default SNMP password | `snmp-default-creds` | Active: connects to the organisation's own servers (opt-in) | High |
 | EASM-EXP-010 | NTLM sign-in reveals internal Windows details | `ntlm-info-leak` | Active: connects to the organisation's own servers (opt-in) | Low |
@@ -92,8 +93,9 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 | EASM-WEB-009 | Page loads a script from a domain anyone can register | `second-order-script-takeover` | Active: connects to the organisation's own servers (opt-in) | High |
 | EASM-WEB-010 | Session cookie without Secure or HttpOnly | `insecure-auth-cookie` | Active: connects to the organisation's own servers (opt-in) | Medium on a page recognised as a login portal (EASM-WEB-001), otherwise Low |
 | EASM-WEB-011 | Baseline security headers are missing | `missing-security-headers` | Active: connects to the organisation's own servers (opt-in) | Medium when a login portal (EASM-WEB-001) can be framed (no X-Frame-Options or CSP frame-ancestors), otherwise Low |
+| EASM-WEB-012 | API key or secret in a public web page | `secret-in-page` | Active: connects to the organisation's own servers (opt-in) | High for private keys and cloud, payment, code-hosting, messaging and AI service keys; Medium for a Slack webhook; Low for a Google API key |
 
-75 rules.
+77 rules.
 
 ## DNS and domain
 
@@ -653,14 +655,24 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 * **Why it matters:** Without Content-Security-Policy, an injected script runs unhindered. Without X-Frame-Options (or CSP frame-ancestors), other sites can frame the page to trick users into clicking (clickjacking), which matters most on sign-in pages. Without X-Content-Type-Options: nosniff, browsers may run files as a different type than intended.
 * **What to do:** Send Content-Security-Policy (start in report-only mode), X-Frame-Options: DENY or CSP frame-ancestors 'none', and X-Content-Type-Options: nosniff, from the web server or framework.
 
+### EASM-WEB-012: API key or secret in a public web page
+
+* **Finding type:** `secret-in-page`
+* **Collection:** Active: connects to the organisation's own servers (opt-in)
+* **Triggered when:** With sensitive-path checks on: the home page or one of the first five of the site's own scripts contains a token in a format that is secret by itself (see secret formats). Only the token's type, a masked form and a hash are stored.
+* **Severity:** High for private keys and cloud, payment, code-hosting, messaging and AI service keys; Medium for a Slack webhook; Low for a Google API key
+* **Evidence:** Active check: the home page and the first five of the site's own scripts, matched against secret key formats (the value is not stored)
+* **Why it matters:** Everything a web page or script contains is public. A live key in it lets anyone use the service it belongs to as you: read data, run up charges, send email or messages in your name, or reach your code and cloud. Automated scanners collect such keys within hours.
+* **What to do:** Revoke the key at the service now and issue a new one (removing it from the page is not enough: it has been public). Keep keys on the server side, behind your own API, and check the service's logs for use you do not recognise.
+
 ## Cloud and storage
 
 ### EASM-CLOUD-001: Cloud storage bucket can be listed by anyone
 
 * **Finding type:** `bucket-public`
 * **Collection:** Active: connects to the organisation's own servers (opt-in)
-* **Triggered when:** A name points at an S3 or Google Cloud Storage bucket that lists its contents to anyone.
-* **Severity:** High
+* **Triggered when:** With storage checks on: a bucket or container that a name points at, or that the home page or the site's own scripts link to, lists its contents to anyone. Checked on Amazon S3, Google Cloud Storage, DigitalOcean Spaces, Alibaba Cloud OSS, Azure Blob Storage (containers) and Firebase Storage.
+* **Severity:** High; Medium for a bucket the site only links to whose name does not carry the domain's name (it may be a supplier's)
 * **Evidence:** Active check: an unauthenticated request to the storage provider
 * **Why it matters:** Anyone can list and probably download the files in the bucket. Data leaks from public buckets are among the most common cloud breaches.
 * **What to do:** Turn on the provider's block-public-access setting, review the bucket policy and ACLs, and check what was exposed.
@@ -669,7 +681,7 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 
 * **Finding type:** `bucket-takeover`
 * **Collection:** Active: connects to the organisation's own servers (opt-in)
-* **Triggered when:** A name points at an S3 or Google Cloud Storage bucket that does not exist (NoSuchBucket).
+* **Triggered when:** With storage checks on: a name points at, or the site loads files from, an Amazon S3, Google Cloud Storage, DigitalOcean Spaces or Alibaba Cloud OSS bucket that does not exist (NoSuchBucket). Bucket names on these are first come, first served.
 * **Severity:** High
 * **Evidence:** Active check: an unauthenticated request to the storage provider
 * **Why it matters:** The DNS name still points at a bucket that was deleted. Anyone can create a bucket with that name and serve their own content from your domain.
@@ -704,6 +716,16 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 * **Evidence:** Active check: the home page of a name that is a Lambda function URL, API Gateway, Cloud Run or Cloud Functions endpoint
 * **Why it matters:** The function returns data to anyone on the internet without credentials. Function URLs are often created for testing with authentication set to none and then forgotten.
 * **What to do:** Require authentication on the endpoint (IAM auth, an authoriser, or Cloud Run's require-authentication setting), or remove it if it is not used.
+
+### EASM-CLOUD-008: Firebase database can be read by anyone
+
+* **Finding type:** `firebase-public`
+* **Collection:** Active: connects to the organisation's own servers (opt-in)
+* **Triggered when:** With storage checks on: a Firebase Realtime Database that the home page or the site's own scripts name answers a read of its top-level keys (/.json?shallow=true) without signing in.
+* **Severity:** High; Medium when the database is empty
+* **Evidence:** Active check: an unauthenticated, read-only request for the top-level keys of a Firebase Realtime Database the site names
+* **Why it matters:** The database's security rules let anyone on the internet read it, and often write to it. App databases like this hold user records, messages and tokens; open ones are found and copied by automated scanners.
+* **What to do:** Change the database's security rules so reads and writes need a signed-in user (".read": "auth != null" at the least, better per-user rules), then check what was exposed and whether anything was changed.
 
 ## Exposure intelligence
 
@@ -762,7 +784,7 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 * **Finding type:** `unauthenticated-datastore`
 * **Collection:** Active: connects to the organisation's own servers (opt-in)
 * **Triggered when:** With network-service checks on, for a port exposure data reports open on the organisation's own address: one read-only request (see datastore checks) is answered without credentials.
-* **Severity:** High
+* **Severity:** High; Medium for Prometheus, which exposes configuration and metrics rather than data
 * **Evidence:** Active check: one read-only request to a port exposure data reports open (Redis INFO, Memcached stats, Elasticsearch /, MongoDB listDatabases, Docker /version, kubelet /pods, anonymous FTP sign-in)
 * **Why it matters:** Anyone on the internet can read, change or delete the data, and a Docker API or kubelet gives full control of the machine. Exposed databases like these are found by automated scanners within hours and are a common cause of breaches and ransom notes.
 * **What to do:** Take the service off the internet (firewall or bind it to a private address), and turn on authentication. Then check its data and logs for signs that someone else already got in.
@@ -995,7 +1017,15 @@ One request each, only to a port exposure data reports open on an address the ac
 |---|---|
 | 21 | FTP |
 | 2375 | Docker API |
+| 5000 | Docker registry |
+| 5601 | Kibana |
+| 5984 | CouchDB |
 | 6379 | Redis |
+| 6443 | Kubernetes API server |
+| 8123 | ClickHouse |
+| 8500 | Consul |
+| 8983 | Apache Solr |
+| 9090 | Prometheus |
 | 9200 | Elasticsearch |
 | 10250 | Kubernetes kubelet |
 | 10255 | Kubernetes kubelet (read-only port) |
@@ -1049,6 +1079,37 @@ One request each, only to a port exposure data reports open on an address the ac
 | `.execute-api.` | an AWS API Gateway endpoint | EASM-CLOUD-007 |
 | `.run.app` | a Google Cloud Run service | EASM-CLOUD-007 |
 | `.cloudfunctions.net` | a Google Cloud Function | EASM-CLOUD-007 |
+
+### Secret formats (EASM-WEB-012)
+
+Only formats that are secret by themselves are matched. The finding keeps the type, the token's public prefix, its length and a hash, never the value.
+
+| Secret | Severity |
+|---|---|
+| a private key | High |
+| an AWS access key ID | High |
+| a Stripe live secret key | High |
+| a GitHub token | High |
+| a Slack token | High |
+| a Slack webhook address | Medium |
+| a SendGrid API key | High |
+| an OpenAI API key | High |
+| an Anthropic API key | High |
+| a Google API key (check that it is restricted to your sites and the APIs you use) | Low |
+
+### Cloud storage checked (EASM-CLOUD-001, EASM-CLOUD-002, EASM-CLOUD-008)
+
+Found from DNS (a name that is an alias for the provider) and from links in the home page and the site's own scripts. One unauthenticated, read-only request each.
+
+| Provider | Can be taken over when missing |
+|---|---|
+| Amazon S3 | Yes |
+| Google Cloud Storage | Yes |
+| DigitalOcean Spaces | Yes |
+| Alibaba Cloud OSS | Yes |
+| Azure Blob Storage | No |
+| Firebase Storage | No |
+| Firebase Realtime Database | No |
 
 ### Debug signs (EASM-WEB-008)
 

@@ -34,7 +34,7 @@ func TestUpdateFromSystemHealth(t *testing.T) {
 	an := e.signedIn("ana", RoleAnalyst)
 
 	// Not checked yet: no banner, card offers a check.
-	if _, body, _ := admin.get("/health"); !strings.Contains(body, "Not checked yet") || strings.Contains(body, "is available. <a") {
+	if _, body, _ := admin.get("/health"); !strings.Contains(body, "Not checked yet") || strings.Contains(body, "New version available") {
 		t.Error("before a check the card should say so and show no banner")
 	}
 	if code, _, _ := an.post("/system/update/check", nil); code != 403 {
@@ -46,14 +46,17 @@ func TestUpdateFromSystemHealth(t *testing.T) {
 	if code, _, r := admin.post("/system/update/check", nil); code != 303 || !strings.HasPrefix(loc(r), "/health") {
 		t.Fatalf("update check: %d %s", code, loc(r))
 	}
-	_, body, _ := admin.get("/")
-	if !strings.Contains(body, "EASM Agent 1.9.0 is available.") {
-		t.Error("admins should see the update banner on every page")
+	for _, p := range []string{"/", "/findings", "/assets"} {
+		_, body, _ := admin.get(p)
+		if !strings.Contains(body, "New version available") || !strings.Contains(body, "EASM Agent 1.9.0 is out; this agent runs") || !strings.Contains(body, "Review and install") {
+			t.Errorf("admins should see the New version available banner, with the install link, on %s", p)
+		}
 	}
-	if _, ab, _ := an.get("/"); strings.Contains(ab, "is available.") {
-		t.Error("the banner is for administrators only")
+	// Everyone else sees that a release is out, but is told an administrator installs it.
+	if _, ab, _ := an.get("/"); !strings.Contains(ab, "New version available") || strings.Contains(ab, "Review and install") || !strings.Contains(ab, "An administrator can install it") {
+		t.Error("an analyst should see the banner without the install link")
 	}
-	_, body, _ = admin.get("/health")
+	_, body, _ := admin.get("/health")
 	for _, want := range []string{"Version 1.9.0 available", "notes for v1.9.0", "Back up and install 1.9.0", "signed checksums"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("updates card lacks %q", want)

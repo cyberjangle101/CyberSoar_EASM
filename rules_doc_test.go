@@ -173,6 +173,22 @@ func renderRules() string {
 	}
 	w("\n")
 
+	w("### Secret formats (EASM-WEB-012)\n\nOnly formats that are secret by themselves are matched. The finding keeps the type, the token's public prefix, its length and a hash, never the value.\n\n| Secret | Severity |\n|---|---|\n")
+	for _, sp := range secretPatterns {
+		w("| %s | %s |\n", cell(sp.What), titleCase(sp.Severity))
+	}
+	w("\n")
+
+	w("### Cloud storage checked (EASM-CLOUD-001, EASM-CLOUD-002, EASM-CLOUD-008)\n\nFound from DNS (a name that is an alias for the provider) and from links in the home page and the site's own scripts. One unauthenticated, read-only request each.\n\n| Provider | Can be taken over when missing |\n|---|---|\n")
+	for _, p := range []string{"s3", "gcs", "do", "oss", "azure", "firebase-storage", "firebase"} {
+		yes := "No"
+		if claimableStorage[p] {
+			yes = "Yes"
+		}
+		w("| %s | %s |\n", bucketProvider(p), yes)
+	}
+	w("\n")
+
 	w("### Debug signs (EASM-WEB-008)\n\nA path of \"(made-up path)\" means the error page for a page that does not exist.\n\n| Path | Recognised by | Severity | What it means |\n|---|---|---|---|\n")
 	for _, d := range debugPages {
 		path := d.Path

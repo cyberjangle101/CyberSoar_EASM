@@ -75,14 +75,14 @@ func TestRolesMatrix(t *testing.T) {
 	if code, _, _ := analyst.post("/targets/1/scan", url.Values{"refresh": {"1"}}); code != 303 {
 		t.Errorf("analyst refresh scan: %d", code)
 	}
-	if _, body, _ := analyst.get("/targets/1"); !strings.Contains(body, "refresh exposure data") {
+	if _, body, _ := analyst.get("/findings?target=example.test"); !strings.Contains(body, "refresh exposure data") {
 		t.Error("analyst is not offered the refresh scan")
 	}
 	if code, _, _ := viewer.post("/targets/1/scan", nil); code != 403 {
 		t.Errorf("viewer scan = %d", code)
 	}
 	// active checks touch the domain's servers: administrators only, like their Settings
-	if _, body, _ := analyst.get("/targets/1"); strings.Contains(body, "with active checks") {
+	if _, body, _ := analyst.get("/findings?target=example.test"); strings.Contains(body, "with active checks") {
 		t.Error("analyst is offered the active scan")
 	}
 	if code, _, _ := analyst.post("/targets/1/scan", url.Values{"active": {"1"}}); code != 403 {
@@ -95,7 +95,7 @@ func TestRolesMatrix(t *testing.T) {
 		t.Fatal("a refused request left an active-scan request behind")
 	}
 	e.scan(1) // run what the analyst queued so the next request is accepted
-	if _, body, _ := admin.get("/targets/1"); !strings.Contains(body, "Scan now with active checks") {
+	if _, body, _ := admin.get("/findings?target=example.test"); !strings.Contains(body, "Scan now with active checks") {
 		t.Error("admin is not offered the active scan")
 	}
 	if code, _, _ := admin.post("/targets/1/scan", url.Values{"active": {"1"}}); code != 303 {

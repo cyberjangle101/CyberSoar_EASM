@@ -121,7 +121,8 @@ func (l *webLab) setProber() {
 		}
 		return "127.0.0.1:1"
 	}
-	p.urls = bucketURLs{s3: func(b string) string { return l.bucketBase + "/s3/" + b + "/" }, gcs: func(b string) string { return l.bucketBase + "/gcs/" + b + "/" }}
+	p.urls = bucketURLs{s3: func(b string) string { return l.bucketBase + "/s3/" + b + "/" }, gcs: func(b string) string { return l.bucketBase + "/gcs/" + b + "/" },
+		rewrite: func(u string) string { return l.bucketBase + "/x/" + strings.TrimPrefix(u, "https://") }}
 	l.h.probe = p
 }
 

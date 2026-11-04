@@ -70,7 +70,7 @@
   <h2>Domains</h2>
   <div class="scroll"><table>
     <thead><tr><th>Domain</th><th>Status</th><th class="num">Hosts</th><th class="num">New hosts</th><th class="num">High</th><th class="num">Medium</th><th class="num">Low</th><th>Last scan</th></tr></thead>
-    <tbody>{{range .R.Targets}}<tr><td><a href="/targets/{{.ID}}">{{.Domain}}</a></td>
+    <tbody>{{range .R.Targets}}<tr><td><a href="/findings?target={{.Domain | urlquery}}">{{.Domain}}</a></td>
       <td>{{if not .Enabled}}paused{{else if not .Baselined}}baselining{{else}}monitoring{{end}}</td>
       <td class="num">{{.Hosts}}</td><td class="num">{{.NewHosts}}</td>
       <td class="num">{{hasKey .OpenFindings "high"}}</td><td class="num">{{hasKey .OpenFindings "medium"}}</td><td class="num">{{hasKey .OpenFindings "low"}}</td>

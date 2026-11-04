@@ -269,11 +269,19 @@ func TestWebTargetLifecycle(t *testing.T) {
 	// valid add with ownership rules, XSS-laden notes
 	xss := `<script>alert(1)</script>`
 	code, _, r = b.post("/targets", url.Values{"domain": {"Example.TEST"}, "asns": {"AS64500"}, "keywords": {"EXAMPLE-NET"}, "notes": {xss}})
-	if code != 303 || !strings.HasPrefix(loc(r), "/targets/") {
+	if code != 303 || loc(r) != "/findings?target=example.test" {
 		t.Fatalf("add: %d %s", code, loc(r))
 	}
-	tpath := loc(r)
-	code, body, _ = b.get(tpath)
+	page := loc(r) // a domain's page is its Findings page; actions still post to /targets/{id}/…
+	added, err := e.store.GetTargetByDomain("example.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tpath := fmt.Sprintf("/targets/%d", added.ID)
+	if code, _, r = b.get(tpath); code != 301 || loc(r) != page {
+		t.Errorf("old domain address: %d %s, want a permanent redirect to %s", code, loc(r), page)
+	}
+	code, body, _ = b.get(page)
 	if code != 200 || !strings.Contains(body, "example.test") || !strings.Contains(body, "Queued") {
 		t.Fatalf("target page: %d", code)
 	}
@@ -290,20 +298,20 @@ func TestWebTargetLifecycle(t *testing.T) {
 	if code, _, _ = b.post(tpath+"/edit", url.Values{"asns": {"AS1, AS2"}, "interval": {"120"}, "notes": {"ok"}}); code != 303 {
 		t.Fatalf("edit: %d", code)
 	}
-	if _, body, _ = b.get(tpath); !strings.Contains(body, "1,2") || !strings.Contains(body, `value="120"`) {
+	if _, body, _ = b.get(page); !strings.Contains(body, "1,2") || !strings.Contains(body, `value="120"`) {
 		t.Error("edit not persisted")
 	}
 	b.post(tpath+"/edit", url.Values{"interval": {"3"}}) // invalid: too small
-	if _, body, _ = b.get(tpath); !strings.Contains(body, "between 15 and 43200") {
+	if _, body, _ = b.get(page); !strings.Contains(body, "between 15 and 43200") {
 		t.Error("invalid interval accepted")
 	}
 	// pause / resume / scan
 	b.post(tpath+"/pause", nil)
-	if _, body, _ = b.get(tpath); !strings.Contains(body, "Paused") || !strings.Contains(body, "Resume") {
+	if _, body, _ = b.get(page); !strings.Contains(body, "Paused") || !strings.Contains(body, "Resume") {
 		t.Error("pause not reflected")
 	}
 	b.post(tpath+"/scan", nil)
-	if _, body, _ = b.get(tpath); !strings.Contains(body, "paused") {
+	if _, body, _ = b.get(page); !strings.Contains(body, "paused") {
 		t.Error("scan-now on a paused target should explain why it did nothing")
 	}
 	b.post(tpath+"/resume", nil)
@@ -313,7 +321,7 @@ func TestWebTargetLifecycle(t *testing.T) {
 	}
 	// delete requires typing the domain
 	b.post(tpath+"/delete", url.Values{"confirm": {"wrong.test"}})
-	if code, _, _ = b.get(tpath); code != 200 {
+	if code, _, _ = b.get(page); code != 200 {
 		t.Error("deleted without confirmation")
 	}
 	if code, _, r = b.post(tpath+"/delete", url.Values{"confirm": {"EXAMPLE.test"}}); code != 303 || loc(r) != "/" {
@@ -356,7 +364,7 @@ func TestWebViewerIsReadOnly(t *testing.T) {
 	if tg, err := e.store.GetTarget(1); err != nil || tg.Domain != "example.test" {
 		t.Error("viewer changed data")
 	}
-	for _, p := range []string{"/findings", "/events", "/report", "/report/inventory.csv", "/report.json", "/targets/1", "/account"} {
+	for _, p := range []string{"/findings", "/events", "/report", "/report/inventory.csv", "/report.json", "/findings?target=example.test", "/account"} {
 		if code, _, _ := v.get(p); code != 200 {
 			t.Errorf("viewer GET %s: %d", p, code)
 		}
@@ -496,13 +504,13 @@ func TestWebReportFindingsEventsAndExports(t *testing.T) {
 	if !strings.Contains(body, "1 open") {
 		t.Error("dashboard does not show the open finding")
 	}
-	_, body, _ = b.get("/targets/1")
+	_, body, _ = b.get("/findings?target=example.test")
 	for _, want := range []string{"www.example.test", "AS64500", "EXAMPLE-NET", "api.example.test", "asn-unexpected", "Scan history"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("target page missing %q", want)
 		}
 	}
-	if _, body, _ = b.get("/targets/1?q=www"); strings.Contains(body, "api.example.test</td>") && !strings.Contains(body, "asn-unexpected") {
+	if _, body, _ = b.get("/findings?target=example.test&q=www"); strings.Contains(body, "api.example.test</td>") && !strings.Contains(body, "asn-unexpected") {
 		t.Error("host filter ignored")
 	}
 	// report page + exports
@@ -658,7 +666,7 @@ func TestWebFindingsShowSourceRiskAndFix(t *testing.T) {
 			t.Errorf("findings page lacks %q", want)
 		}
 	}
-	for _, p := range []string{"/targets/1", "/report"} {
+	for _, p := range []string{"/findings?target=example.test", "/report"} {
 		if _, body, _ = b.get(p); !strings.Contains(body, "Recommended fix") || !strings.Contains(body, "shadow IT") {
 			t.Errorf("%s lacks the explanation columns", p)
 		}
