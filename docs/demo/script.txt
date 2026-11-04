@@ -1,0 +1,27 @@
+# What tools/democap captures for the README screenshots and the demo video (docs/DEMO.md).
+# The data is the UAT lab's made-up company, acme-corp.test: nothing real is scanned.
+
+# README screenshots
+shot dashboard / light
+shot findings /findings light
+shot domain /findings?target=acme-corp.test light
+shot evidence /findings/4/evidence light
+shot assets /assets light
+shot report /report?target=acme-corp.test light
+shot dashboard-dark / dark
+
+# Video: title cards (the text goes in the fragment; + is a space)
+card card-intro docs/demo/card.html k=Open+source+·+runs+on+your+own+machine&t=See+your+attack+surface+the+way+attackers+do&s=EASM+Agent+finds+what+your+organisation+exposes+on+the+internet,+and+tells+you+when+it+changes.
+card card-findings docs/demo/card.html k=Findings&t=Every+finding+explains+the+risk+and+the+fix&s=Take-over+risks,+exposed+services,+vulnerable+software,+weak+email+security,+public+storage+and+leaked+keys.
+card card-evidence docs/demo/card.html k=Evidence&t=Proof+you+can+check+yourself&s=Each+finding+shows+where+it+came+from,+when+it+was+seen,+and+how+to+confirm+it.
+card card-domain docs/demo/card.html k=Domains&t=One+page+per+domain&s=Scan+controls,+settings,+hosts,+certificates+and+every+change+since+the+baseline.
+card card-report docs/demo/card.html k=Reporting&t=Reports+people+will+actually+read&s=A+posture+score,+charts+and+exports:+PDF,+CSV,+JSON,+SARIF+and+STIX.
+card card-outro docs/demo/card.html k=Free+and+open+source&t=Know+your+attack+surface+before+someone+else+does&s=Windows,+Linux,+Docker+and+Kubernetes.+Signed+releases.&u=github.com/cyberjangle101/cybersour-attack-surface-scanner
+
+# Video: pages, scrolled as they would be read
+clip v-dashboard / light 16 300
+clip v-findings /findings light 30 1500
+clip v-evidence /findings/4/evidence light 8 0
+clip v-domain /findings?target=acme-corp.test light 30 1800
+clip v-report /report?target=acme-corp.test light 30 1200
+clip v-dark / dark 8 0

@@ -22,6 +22,7 @@
   <a class="stat {{if .Stats.HighFindings}}bad{{else if .Stats.OpenFindings}}warn{{else}}good{{end}}" href="/findings"><div class="n">{{.Stats.OpenFindings}}</div><div class="l">Open findings{{if .Stats.HighFindings}} ({{.Stats.HighFindings}} high){{end}}</div>{{if .Stats.UnconfirmedFindings}}<div class="l small">+ {{.Stats.UnconfirmedFindings}} unconfirmed</div>{{end}}</a>
   <a class="stat purple" href="/events"><div class="n">{{.Stats.Events24h}}</div><div class="l">Changes in 24h</div></a>
 </div>
+{{if .Stats.UnconfirmedFindings}}<div class="flash warn noprint" role="status"><strong>{{.Stats.UnconfirmedFindings}} unconfirmed finding{{if ne .Stats.UnconfirmedFindings 1}}s{{end}}</strong>, such as possible vulnerabilities (CVEs), come from one exposure-data source only, which is often out of date. They are not counted or alerted until a second source agrees: the agent's own active check, or an analyst who confirms them. <a href="/findings?trust=unconfirmed">Review them</a></div>{{end}}
 
 {{if .IsAdmin}}
 <section class="card" id="add">

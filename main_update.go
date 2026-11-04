@@ -146,7 +146,11 @@ func (p *program) restartAfterUpdate() {
 					}
 				}
 				cmd := exec.Command(exe, append(args, "-after-update")...) //nolint:gosec // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- G204: exe is os.Executable() (this program restarting itself) and args are its own command line; no outside input
-				inNewConsole(cmd)
+				if restartNeedsWindow(p.boot.KeyPath()) {
+					inNewConsole(cmd) // the key passphrase has to be typed in
+				} else {
+					inBackground(cmd) // nothing to type: no window, so none can be left open
+				}
 				if err = cmd.Start(); err == nil {
 					p.log.Info("restarting into the updated program", "pid", cmd.Process.Pid)
 				}
@@ -158,4 +162,18 @@ func (p *program) restartAfterUpdate() {
 			os.Exit(0)
 		}()
 	})
+}
+
+// restartNeedsWindow reports whether the restarted agent will have to ask for the key-file
+// passphrase: only then does it need a console window. A key protected by the Windows account,
+// an unprotected key, or a passphrase in the environment needs none.
+func restartNeedsWindow(keyPath string) bool {
+	if _, ok, _ := envPassphrase(); ok {
+		return false
+	}
+	raw, err := os.ReadFile(keyPath) //nolint:gosec // G304: the agent's own key file, from its configuration
+	if err != nil {
+		return true // cannot tell: keep the window, so a prompt is never lost
+	}
+	return strings.HasPrefix(string(raw), wrappedMagic)
 }

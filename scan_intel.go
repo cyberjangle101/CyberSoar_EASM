@@ -20,8 +20,9 @@ type intelData struct {
 	domain    *DomainInfo // fresh or cached registration data (nil = unknown)
 	domainOK  bool        // the registration data is current
 	enabled   bool
-	epss      map[string]float64 // CVE -> FIRST EPSS probability, for the CVEs seen in this scan
-	torLoaded bool               // a current Tor exit list was in use for this scan
+	epss      map[string]float64  // CVE -> FIRST EPSS probability, for the CVEs seen in this scan
+	torLoaded bool                // a current Tor exit list was in use for this scan
+	banners   map[string][]string // address -> Server and X-Powered-By headers the agent's own web check saw (scan_active.go)
 }
 
 // reliableFor says whether a finding of this kind can be auto-resolved: only when this
@@ -329,6 +330,13 @@ func (s *Scanner) applyIntel(tx *Tx, t *Target, d *intelData, asns map[string]*A
 		}
 		if len(vulns) > 0 {
 			sev, msg := s.describeVulns(vulns, where, d.epss)
+			// Exposure data infers CVEs from the software version it saw. When the agent's own web
+			// check sees that same product and version on the address, the version is confirmed
+			// first-hand: a second, independent source, so the finding is trusted (trust.go).
+			if seen := versionSeen(rawCPEs(bySrc), d.banners[ip]); seen != "" {
+				vsrc["Active check (the server reports "+seen+")"] = true
+				msg += ". The agent's own check sees the same version (" + seen + ")"
+			}
 			raise("vuln:"+ip, "known-vuln", sev, host, msg, strings.Join(sortedKeys(vsrc), ", "))
 		}
 		if len(flagBy) > 0 {

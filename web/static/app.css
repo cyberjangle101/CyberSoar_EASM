@@ -74,6 +74,7 @@ body.app { display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); m
 .side-head { display: flex; align-items: center; justify-content: space-between; height: 58px; padding: 0 6px; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--side-strong); letter-spacing: .2px; }
 .brand:hover { text-decoration: none; }
+img.logo { display: block; background: none; object-fit: contain; }
 .logo { width: 30px; height: 30px; border-radius: 8px; display: inline-grid; place-items: center; background: linear-gradient(135deg, #2563eb, #7c3aed); color: #fff; font-weight: 800; }
 .side-close { display: none; color: var(--side-text); font-size: 1.5rem; line-height: 1; padding: 4px 8px; }
 .side nav { display: flex; flex-direction: column; gap: 2px; }
