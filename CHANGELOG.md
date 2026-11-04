@@ -10,7 +10,8 @@ What changed in each release of EASM Agent, newest first. Releases and their sig
 * **Light and dark mode.** The interface follows your computer's setting until you choose with the moon/sun button in the top bar. The choice is remembered by your browser.
 * **Search everything.** The search box at the top of every page looks through monitored domains, findings (any status) and the asset inventory at once. Press `/` to jump to it.
 * **Connect an AI assistant (MCP).** Claude, or any other assistant that speaks the Model Context Protocol, can read findings, assets and recent changes through `/mcp` using an API token. A Viewer token is read-only; an Analyst token can also queue a rescan of a domain that is already monitored. Nothing an assistant does can add a domain or change a finding. Every connection is audited. Read [docs/MCP.md](docs/MCP.md) before you turn it on: it covers where your data goes and the prompt-injection risk.
-
+* **More security checks on every change.** The container image is now built, run and scanned for vulnerabilities (Trivy) on every pull request, on Intel and ARM; the Dockerfile and Kubernetes manifests are checked for risky settings; the PowerShell test scripts are analysed (PSScriptAnalyzer); and CodeQL runs its extended security queries. Each release image now carries a signed software bill of materials (SBOM): `gh attestation verify oci://ghcr.io/cyberjangle101/easm-agent:1.9.17 --repo cyberjangle101/cybersour-attack-surface-scanner --predicate-type https://cyclonedx.org/bom`.
+* **Kubernetes manifests** pin the 1.9.16 image (they were still on 1.9.13) and move to 1.9.17 once it is published.
 **v1.9.16 (twenty-eight new rules: DNS, certificates, web applications, network services, threat intelligence):**
 
 Every rule is listed in [docs/RULES.md](docs/RULES.md).
