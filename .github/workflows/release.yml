@@ -27,6 +27,10 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  # The image scanner (container.yml uses the same), pinned by digest rather than run as a third-party action.
+  TRIVY_IMAGE: aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+
 jobs:
   uat-passed:
     name: UAT passed for this commit
@@ -203,6 +207,16 @@ jobs:
           gh release download "$TAG" -D dist
           go run ./tools/release verify -dir dist
 
+      # Scanned before anything is pushed: a fixable High or Critical vulnerability in the image's
+      # operating-system packages stops the release here. Same scanner and gate as container.yml.
+      - name: Scan the image before publishing (Trivy)
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          docker build --platform linux/amd64 --build-arg "VERSION=${TAG#v}" -t easm-agent:scan .
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY_IMAGE" \
+            image --format table --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed --pkg-types os easm-agent:scan
       - name: Build and push (linux/amd64, linux/arm64)
         id: build
         env:
@@ -230,6 +244,25 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
+      # A software bill of materials (CycloneDX) for the published image, attached to it as a
+      # signed attestation: gh attestation verify oci://IMAGE --predicate-type https://cyclonedx.org/bom
+      - name: Software bill of materials
+        env:
+          IMAGE: ${{ steps.build.outputs.image }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$HOME/.docker:/root/.docker:ro" -v "$RUNNER_TEMP:/out" "$TRIVY_IMAGE" \
+            image --format cyclonedx --output /out/sbom.cdx.json "$IMAGE@$DIGEST"
+          jq -e '.components | length > 0' "$RUNNER_TEMP/sbom.cdx.json" > /dev/null
+
+      - name: Attach the bill of materials to the image
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-name: ${{ steps.build.outputs.image }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          sbom-path: ${{ runner.temp }}/sbom.cdx.json
+          push-to-registry: true
       - name: Sign out of the registry
         if: always()
         run: docker logout ghcr.io
@@ -450,6 +483,7 @@ jobs:
           docker pull "$REF"
           docker logout ghcr.io
           gh attestation verify "oci://$REF" --repo "$GITHUB_REPOSITORY"
+          gh attestation verify "oci://$REF" --repo "$GITHUB_REPOSITORY" --predicate-type https://cyclonedx.org/bom
           test "$(docker run --rm "$REF" -version)" = "easm-agent ${TAG#v}"
           cfg=$(docker image inspect "$REF" --format '{{.Config.User}} {{json .Config.Env}}')
           echo "$cfg"
