@@ -112,6 +112,9 @@ jobs:
           cp Dockerfile "$RUNNER_TEMP/easm.yaml" .trivyignore "$RUNNER_TEMP/config/"
           trivy() { docker run --rm -v trivy-cache:/root/.cache -v "$RUNNER_TEMP/config:/config:ro" -v "$PWD/scan:/out" "$TRIVY_IMAGE" "$@"; }
           trivy config --ignorefile /config/.trivyignore --format sarif --output /out/trivy-config.sarif /config
+          # The report's base path (file:///config/) exists only inside the scanner's container, and the
+          # upload fails on it (EISDIR). Without it, paths are read relative to the repository root.
+          jq 'del(.runs[].originalUriBaseIds)' scan/trivy-config.sarif > scan/config.sarif && mv scan/config.sarif scan/trivy-config.sarif
           trivy config --ignorefile /config/.trivyignore --format table --exit-code 1 --severity MEDIUM,HIGH,CRITICAL /config
 
       - name: Upload the misconfiguration scan to code scanning
