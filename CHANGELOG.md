@@ -14,6 +14,7 @@ What changed in each release of EASM Agent, newest first. Releases and their sig
 * **Public APIs.** EASM-EXP-006 now also checks the Kubernetes API server, Docker registries, Consul, CouchDB, Apache Solr, ClickHouse, Kibana and Prometheus for answering without credentials, on ports that exposure data reports open.
 * **EASM-WEB-012 API key or secret in a public web page (new).** The home page and the site's own scripts are checked for keys in formats that are secret by themselves (private keys; AWS, Stripe, GitHub, Slack, SendGrid, OpenAI and Anthropic keys). The key itself is never stored: only its type, a masked form and a hash.
 * **Fixed:** network checks sent a query string as part of the path, so the Elasticsearch index count was always 0.
+* **Kubernetes manifests** pin the 1.9.17 image, and move to 1.9.18 once it is published.
 * **Scheduling checked:** a new test runs the real scheduler loop and confirms that each domain is scanned on its own when its interval passes, that one not yet due is left alone, and that a paused one is never scanned.
 
 **v1.9.17 (new look, light and dark mode, search, AI assistants over MCP):**
