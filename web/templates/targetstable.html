@@ -4,7 +4,7 @@
     <tbody>
     {{range .Rows}}
     <tr>
-      <td><a href="/targets/{{.T.ID}}"><strong>{{.T.Domain}}</strong></a>{{if .Subdomain}} <span class="badge warn" title="This is a sub-domain, not a registered domain. Only names below it are discovered, and email/DNS records at the parent domain are not checked.">sub-domain scope</span>{{end}}{{if .T.Notes}}<div class="muted small">{{.T.Notes}}</div>{{end}}</td>
+      <td><a href="/findings?target={{.T.Domain | urlquery}}"><strong>{{.T.Domain}}</strong></a>{{if .Subdomain}} <span class="badge warn" title="This is a sub-domain, not a registered domain. Only names below it are discovered, and email/DNS records at the parent domain are not checked.">sub-domain scope</span>{{end}}{{if .T.Notes}}<div class="muted small">{{.T.Notes}}</div>{{end}}</td>
       <td><span class="badge {{.StateClass}}">{{.State}}</span>{{if and (eq .T.LastStatus "error") .T.LastError}}<div class="muted small">{{.T.LastError}}</div>{{end}}{{if .Prog}}{{template "progress" .Prog}}{{else if eq .State "Queued"}}<div class="muted small">Waiting for a free scan slot…</div>{{end}}</td>
       <td class="num">{{.Hosts}}</td>
       <td>{{if .FindingTotal}}<a href="/findings?target={{.T.Domain | urlquery}}"><span class="badge {{sevClass .MaxSev}}">{{.FindingTotal}} open</span></a>{{else}}<span class="muted">none</span>{{end}}</td>

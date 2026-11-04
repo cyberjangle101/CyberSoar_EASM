@@ -149,7 +149,11 @@ func (s *Scanner) gatherNet(ctx context.Context, t *Target, results map[string]*
 				}
 				d.scopes[netScope(ip, port)] = true
 				if what != "" {
-					add(netKey("unauthenticated-datastore", ip, port, ""), "unauthenticated-datastore", "high", hostOf[ip],
+					sev := "high"
+					if s, ok := datastoreSeverity[port]; ok {
+						sev = s
+					}
+					add(netKey("unauthenticated-datastore", ip, port, ""), "unauthenticated-datastore", sev, hostOf[ip],
 						fmt.Sprintf("%s on %s port %d: %s.", chk.Name, where(ip), port, what))
 				}
 			}

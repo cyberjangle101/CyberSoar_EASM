@@ -10,8 +10,8 @@ Set-Content (OutPath 'scan-credentials.txt') -Encoding ascii -Value "lab admin: 
 function Flash([string]$html) { ([regex]::Match($html, '(?s)class="flash[^"]*"[^>]*>(.*?)</div>').Groups[1].Value -replace '<[^>]+>', '').Trim() }
 function Prog($s) { try { Invoke-RestMethod -WebSession $s "$B/progress.json" } catch { @() } }
 function ProgFor($s, [string]$dom) { @(Prog $s) | Where-Object { $_.domain -eq $dom } }
-function TargetId($s, [string]$dom) { $t = (Invoke-Page $s $B '/targets').b; if ($t -match "/targets/(\d+)`"><strong>$([regex]::Escape($dom))<") { $Matches[1] } }
-function TargetPage($s, $id) { (Invoke-Page $s $B "/targets/$id").b }
+function TargetId($s, [string]$dom) { $t = (Invoke-Page $s $B '/targets').b; if ($t -match "/targets/(\d+)/delete`" title=`"Delete $([regex]::Escape($dom)) ") { $Matches[1] } }
+function TargetPage($s, $id) { Get-TargetPage $s $B $id }
 function Post($s, [string]$path, [hashtable]$extra = @{}) {
     $pg = Invoke-Page $s $B '/'
     $f = @{ csrf = (Get-Csrf $pg.b) }; foreach ($k in $extra.Keys) { $f[$k] = $extra[$k] }
@@ -43,22 +43,22 @@ Check 'SCAN-1.4' 'findings raised, including exposed services from exposure data
 
 # --- SCAN-2: scan now variants on an idle domain
 $s = Post $a "/targets/$acme/scan"
-Check 'SCAN-2.1' 'Scan now queues a scan' (($s.c -eq 303) -and ((Flash (Invoke-Page $a $B "/targets/$acme").b) -match 'Scan queued'))
+Check 'SCAN-2.1' 'Scan now queues a scan' (($s.c -eq 303) -and ((Flash (TargetPage $a $acme)) -match 'Scan queued'))
 Check 'SCAN-2.2' 'queued scan finishes' (WaitIdle $a 'acme-corp.test')
 $s = Post $a "/targets/$acme/scan" @{ refresh = '1' }
-Check 'SCAN-2.3' 'Scan now and refresh exposure data queues a refresh' ((Flash (Invoke-Page $a $B "/targets/$acme").b) -match 'Saved exposure answers will be ignored')
+Check 'SCAN-2.3' 'Scan now and refresh exposure data queues a refresh' ((Flash (TargetPage $a $acme)) -match 'Saved exposure answers will be ignored')
 $null = WaitIdle $a 'acme-corp.test'
 $s = Post $a "/targets/$acme/scan" @{ active = '1' }
-Check 'SCAN-2.4' 'Scan now with active checks queues an active scan' ((Flash (Invoke-Page $a $B "/targets/$acme").b) -match 'Scan queued with active checks')
+Check 'SCAN-2.4' 'Scan now with active checks queues an active scan' ((Flash (TargetPage $a $acme)) -match 'Scan queued with active checks')
 Check 'SCAN-2.5' 'active scan finishes' (WaitIdle $a 'acme-corp.test')
 Check 'SCAN-2.6' 'active scan request is audited' ((Invoke-Page $a $B '/audit').b -match 'scan\.active')
 
 # --- SCAN-3: pause and resume an idle domain
 $null = Post $a "/targets/$acme/pause"
-$tp = (Invoke-Page $a $B "/targets/$acme").b
+$tp = (TargetPage $a $acme)
 Check 'SCAN-3.1' 'idle pause: monitoring paused, Resume offered, no scan running' (((Flash $tp) -match '^Monitoring paused\.') -and ($tp -match '>Resume<') -and -not (ProgFor $a 'acme-corp.test'))
 $null = Post $a "/targets/$acme/scan"
-Check 'SCAN-3.2' 'Scan now on a paused domain explains why nothing happens' ((Flash (Invoke-Page $a $B "/targets/$acme").b) -match 'paused')
+Check 'SCAN-3.2' 'Scan now on a paused domain explains why nothing happens' ((Flash (TargetPage $a $acme)) -match 'paused')
 $null = Post $a "/targets/$acme/resume"
 Check 'SCAN-3.3' 'resume starts a scan that finishes' (WaitIdle $a 'acme-corp.test')
 
@@ -69,11 +69,11 @@ for ($i = 0; $i -lt 30 -and -not (ProgFor $a 'slowco.test'); $i++) { Start-Sleep
 $pr = ProgFor $a 'slowco.test'
 Check 'SCAN-4.1' 'slow scan is running with a live progress bar' ([bool]$pr) "$($pr.percent)% $($pr.stage)"
 $null = Post $a "/targets/$slow/pause"
-$tp = (Invoke-Page $a $B "/targets/$slow").b
+$tp = (TargetPage $a $slow)
 Check 'SCAN-4.2' 'pausing mid-scan says the running scan was stopped' ((Flash $tp) -match 'running scan was stopped') (Flash $tp)
 $stopped = $false; for ($i = 0; $i -lt 10; $i++) { if (-not (ProgFor $a 'slowco.test')) { $stopped = $true; break }; Start-Sleep 1 }
 Check 'SCAN-4.3' 'the scan actually stops within 10 seconds' $stopped "after ${i}s"
-$tp = (Invoke-Page $a $B "/targets/$slow").b
+$tp = (TargetPage $a $slow)
 Check 'SCAN-4.4' 'scan history records it as stopped because monitoring was paused' ($tp -match 'stopped: monitoring was paused')
 Start-Sleep 20
 Check 'SCAN-4.5' 'a paused domain is not scanned again (20s later)' (-not (ProgFor $a 'slowco.test'))
@@ -89,16 +89,16 @@ Check 'SCAN-5.1' 'running scan is passive (no Active checks marker)' ($pr -and -
 $ana = Post $an "/targets/$slow/scan" @{ active = '1' }
 Check 'SCAN-5.2' 'analyst cannot request active checks (403) and the scan is untouched' (($ana.c -eq 403) -and (ProgFor $a 'slowco.test'))
 $null = Post $a "/targets/$slow/scan" @{ active = '1' }
-$tp = (Invoke-Page $a $B "/targets/$slow").b
+$tp = (TargetPage $a $slow)
 Check 'SCAN-5.3' 'admin request restarts the scan with active checks' ((Flash $tp) -match 'starting again with active checks') (Flash $tp)
 $act = $false; for ($i = 0; $i -lt 30; $i++) { $pr = ProgFor $a 'slowco.test'; if ($pr -and $pr.active) { $act = $true; break }; Start-Sleep 1 }
 Check 'SCAN-5.4' 'the new scan runs with active checks (progress.json active=true)' $act "after ${i}s"
-$tp = (Invoke-Page $a $B "/targets/$slow").b
+$tp = (TargetPage $a $slow)
 Check 'SCAN-5.5' 'progress bar on the page shows Active checks' ($tp -match 'data-p="mode">Active checks')
 Check 'SCAN-5.6' 'history records the passive scan as restarted' ($tp -match 'stopped: restarted with active checks')
 Check 'SCAN-5.7' 'restart is audited' ((Invoke-Page $a $B '/audit').b -match 'running scan restarted with active checks')
 $null = Post $a "/targets/$slow/scan"
-Check 'SCAN-5.8' 'plain Scan now while scanning says a scan is already running' ((Flash (Invoke-Page $a $B "/targets/$slow").b) -match 'already running')
+Check 'SCAN-5.8' 'plain Scan now while scanning says a scan is already running' ((Flash (TargetPage $a $slow)) -match 'already running')
 $null = Post $a "/targets/$slow/pause"   # stop the 90s scan; tidy up
 
 # --- SCAN-6: Confirm via active scan on exposed-service findings (new)

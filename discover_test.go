@@ -369,7 +369,7 @@ func TestSuggestionActions(t *testing.T) {
 	analyst := e.signedIn("ann", RoleAnalyst)
 	admin := e.signedIn("boss", RoleAdmin)
 	page := "/targets/" + itoa(tg.ID)
-	if _, body, _ := analyst.get(page); !strings.Contains(body, "sister.test") || strings.Contains(body, "Monitor it") || !strings.Contains(body, "Not mine") {
+	if _, body, _ := analyst.get("/findings?target=" + tg.Domain); !strings.Contains(body, "sister.test") || strings.Contains(body, "Monitor it") || !strings.Contains(body, "Not mine") {
 		t.Fatal("analyst should see suggestions with only the dismiss action")
 	}
 	if c, _, _ := analyst.post(page+"/suggestions/accept", url.Values{"domain": {"sister.test"}}); c != 403 {

@@ -41,7 +41,9 @@ type Engine struct {
 	wg        sync.WaitGroup
 	alertMu   sync.Mutex // one alert flush at a time so batches never duplicate
 
-	progress  *ProgressBoard
+	progress *ProgressBoard
+	// tickEvery is how often the scheduler looks for domains whose next scan time has passed.
+	tickEvery time.Duration
 	backing   atomic.Bool // a scheduled backup is being written
 	lastBkTry time.Time
 	dataDir   string // shown on the Health page so it is obvious where the database and key live
@@ -61,13 +63,17 @@ type Engine struct {
 	newUpdater  func() *Updater // test seam; nil means NewUpdater
 }
 
+// schedulerTick is how often the scheduler checks for due domains when nothing wakes it sooner:
+// a domain's scheduled scan starts at most this long after its next scan time.
+const schedulerTick = 15 * time.Second
+
 // defaultHealthEvery is the automatic connector re-check interval.
 const defaultHealthEvery = 6 * time.Hour
 
 // NewEngine creates the scheduler, restoring persisted connector health.
 func NewEngine(store *Store, vault *Vault, log *slog.Logger) *Engine {
 	e := &Engine{store: store, vault: vault, log: log, wake: make(chan struct{}, 1), health: NewHealthBoard(), started: time.Now(),
-		active: map[int64]string{}, progress: NewProgressBoard(), healthEvery: defaultHealthEvery, updateEvery: defaultUpdateEvery}
+		active: map[int64]string{}, progress: NewProgressBoard(), healthEvery: defaultHealthEvery, updateEvery: defaultUpdateEvery, tickEvery: schedulerTick}
 	if v, ok, _ := store.getMeta("health"); ok {
 		e.health.Load(v)
 	}
@@ -235,7 +241,7 @@ func (e *Engine) Run(ctx context.Context) {
 	}
 	defer e.wg.Wait() // let in-flight scans record their "interrupted" state before returning
 	e.log.Info("scheduler started")
-	tick := time.NewTicker(15 * time.Second)
+	tick := time.NewTicker(e.tickEvery)
 	defer tick.Stop()
 	for {
 		e.runDue(ctx)

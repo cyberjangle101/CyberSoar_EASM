@@ -4,6 +4,18 @@ What changed in each release of EASM Agent, newest first. Releases and their sig
 
 ## 1.9
 
+**v1.9.18 (one page per domain, accessible light mode, public storage and API checks, update banner):**
+
+* **One page per domain.** Clicking a domain now opens its Findings page, filtered to that domain, with its scan buttons, its settings (in a card at the top: click to open), and its hosts, certificates, changes and scan history below. The separate `/targets/…` page is gone; old links and bookmarks go to the new page.
+* **Light mode is white and light grey**, with a white sidebar, and every colour pair meets WCAG 2.2 AA contrast (4.5:1 for text, 3:1 for the borders of inputs and buttons). The search box no longer overlaps its icon.
+* **New version available banner.** When a newer release is out, a banner at the top of every page says so, for everyone signed in. Administrators get a button to review and install it; others are told an administrator can; container installs are told to deploy the new image.
+* **Public storage.** Bucket checks (EASM-CLOUD-001 and -002) now cover DigitalOcean Spaces, Alibaba Cloud OSS, Azure Blob Storage containers and Firebase Storage as well as Amazon S3 and Google Cloud Storage, and check buckets your site's pages and scripts link to, not only those named in DNS. A missing bucket your site loads files from is reported as a takeover: anyone could create it and serve scripts to your visitors.
+* **EASM-CLOUD-008 Firebase database can be read by anyone (new).** A Firebase Realtime Database your site names is asked for its top-level keys without signing in.
+* **Public APIs.** EASM-EXP-006 now also checks the Kubernetes API server, Docker registries, Consul, CouchDB, Apache Solr, ClickHouse, Kibana and Prometheus for answering without credentials, on ports that exposure data reports open.
+* **EASM-WEB-012 API key or secret in a public web page (new).** The home page and the site's own scripts are checked for keys in formats that are secret by themselves (private keys; AWS, Stripe, GitHub, Slack, SendGrid, OpenAI and Anthropic keys). The key itself is never stored: only its type, a masked form and a hash.
+* **Fixed:** network checks sent a query string as part of the path, so the Elasticsearch index count was always 0.
+* **Scheduling checked:** a new test runs the real scheduler loop and confirms that each domain is scanned on its own when its interval passes, that one not yet due is left alone, and that a paused one is never scanned.
+
 **v1.9.17 (new look, light and dark mode, search, AI assistants over MCP):**
 
 * **New look.** The menu is now down the left-hand side, grouped into Monitor, Reporting, System and Administration, with your account in the top bar. Colours are coded by meaning across the interface: severities, finding status (open red, accepted amber, resolved green) and asset types each have their own colour. On a phone, the menu slides in from the left.

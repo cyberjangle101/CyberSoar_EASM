@@ -113,7 +113,7 @@ var findingKinds = map[string]bool{"tls-expired": true, "tls-expiring": true, "t
 	"insecure-auth-cookie": true, "missing-security-headers": true, "tls-sni-hostname-leak": true,
 	"unauthenticated-datastore": true, "dns-open-resolver": true, "dns-zone-transfer": true, "snmp-default-creds": true, "ntlm-info-leak": true,
 	"tls-weak-cipher": true, "orphaned-load-balancer": true, "exposed-function-url": true, "waf-origin-bypass": true,
-	"lookalike-tls-issued": true, "phishing-clone": true, "dependency-confusion": true}
+	"lookalike-tls-issued": true, "phishing-clone": true, "dependency-confusion": true, "firebase-public": true, "secret-in-page": true}
 
 func nowUTC() string { return time.Now().UTC().Format(time.RFC3339) }
 
@@ -406,6 +406,15 @@ func (s *Store) GetTarget(id int64) (*Target, error) {
 		t.BaselinedAt = v
 	}
 	return t, nil
+}
+
+// GetTargetByDomain returns one target by its domain name.
+func (s *Store) GetTargetByDomain(domain string) (*Target, error) {
+	var id int64
+	if err := s.db.QueryRow(`SELECT id FROM targets WHERE domain=?`, domain).Scan(&id); err != nil {
+		return nil, err
+	}
+	return s.GetTarget(id)
 }
 
 var ErrNotFound = sql.ErrNoRows

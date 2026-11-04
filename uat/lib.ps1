@@ -41,6 +41,13 @@ function Start-Agent {
     throw "agent $Exe did not start on $Port (exited=$($p.HasExited))"
 }
 
+# A domain's page: /targets/{id} redirects to /findings?target={domain} (from v1.9.18), so follow it.
+function Get-TargetPage($Session, [string]$Base, $Id) {
+    $r = Invoke-Page $Session $Base "/targets/$Id"
+    if ($r.c -eq 301 -and $r.l) { $r = Invoke-Page $Session $Base $r.l }
+    return $r.b
+}
+
 function Get-Csrf([string]$html) { if ($html -match 'name="csrf" value="([0-9a-f]+)"') { $Matches[1] } }
 
 function Invoke-Page($Session, [string]$Base, [string]$Path, [hashtable]$Form = $null) {

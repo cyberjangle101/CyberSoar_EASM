@@ -40,7 +40,7 @@ func TestPauseStopsRunningScan(t *testing.T) {
 	if code, _, _ := admin.post(path+"/pause", nil); code != 303 {
 		t.Fatalf("pause: %d", code)
 	}
-	_, body, _ := admin.get(path)
+	_, body, _ := admin.get("/findings?target=" + tg.Domain)
 	if !strings.Contains(body, "running scan was stopped") {
 		t.Error("pausing during a scan should say the scan was stopped")
 	}
@@ -100,7 +100,7 @@ func TestActiveScanRestartsRunningPassiveScan(t *testing.T) {
 	if code, _, _ := admin.post(path+"/scan", url.Values{"active": {"1"}}); code != 303 {
 		t.Fatalf("active scan: %d", code)
 	}
-	_, body, _ := admin.get(path)
+	_, body, _ := admin.get("/findings?target=" + tg.Domain)
 	if !strings.Contains(body, "starting again with active checks") {
 		t.Error("the page should say the scan is restarting with active checks")
 	}
@@ -121,7 +121,7 @@ func TestActiveScanRestartsRunningPassiveScan(t *testing.T) {
 	if _, js, _ := admin.get("/progress.json"); !strings.Contains(js, `"active":true`) {
 		t.Errorf("progress.json should mark the active scan: %s", js)
 	}
-	if _, page, _ := admin.get(path); !strings.Contains(page, "Active checks ·") {
+	if _, page, _ := admin.get("/findings?target=" + tg.Domain); !strings.Contains(page, "Active checks ·") {
 		t.Error("the progress bar should show that active checks are on")
 	}
 }

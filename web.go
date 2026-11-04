@@ -150,9 +150,9 @@ func NewServer(store *Store, eng *Engine, log *slog.Logger, boot *Bootstrap) (*S
 		},
 	}
 	s.tpl = map[string]*template.Template{}
-	pages := []string{"login", "setup", "dashboard", "guide", "targets", "target_delete", "target", "findings", "evidence", "events", "assets", "asset", "health", "report", "settings", "users", "account", "error", "moved", "audit", "ad", "channels", "login2fa", "twofactor", "search"}
+	pages := []string{"login", "setup", "dashboard", "guide", "targets", "target_delete", "findings", "evidence", "events", "assets", "asset", "health", "report", "settings", "users", "account", "error", "moved", "audit", "ad", "channels", "login2fa", "twofactor", "search"}
 	for _, p := range pages {
-		t, err := template.New(p).Funcs(funcs).ParseFS(webFS, "web/templates/layout.html", "web/templates/progress.html", "web/templates/triage.html", "web/templates/targetstable.html", "web/templates/"+p+".html")
+		t, err := template.New(p).Funcs(funcs).ParseFS(webFS, "web/templates/layout.html", "web/templates/progress.html", "web/templates/triage.html", "web/templates/targetstable.html", "web/templates/domain.html", "web/templates/"+p+".html")
 		if err != nil {
 			return nil, fmt.Errorf("template %s: %w", p, err)
 		}
@@ -508,10 +508,10 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, sess *Session, p
 		sess.Flash = nil
 		s.mu.Unlock()
 		data["Scanning"] = s.eng.Current()
-		if sess.Role == RoleAdmin {
-			if u := s.eng.UpdateState(); u.Available && u.Latest != nil {
-				data["UpdateBanner"] = u.Latest.Version
-			}
+		// Everyone signed in sees when a newer release is out; only an administrator can install it.
+		if u := s.eng.UpdateState(); u.Available && u.Latest != nil {
+			data["Update"] = updateBanner{Version: u.Latest.Version, Running: version, Notes: u.Latest.URL,
+				Admin: sess.Role == RoleAdmin, Managed: u.Managed}
 		}
 	}
 	var buf bytes.Buffer
@@ -523,6 +523,12 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, sess *Session, p
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
 	_, _ = w.Write(buf.Bytes()) // nosemgrep: no-direct-write-to-responsewriter -- output of html/template (auto-escaped)
+}
+
+// updateBanner is the New version available banner at the top of every page.
+type updateBanner struct {
+	Version, Running, Notes string
+	Admin, Managed          bool
 }
 
 func (s *Server) renderError(w http.ResponseWriter, r *http.Request, sess *Session, status int, title, msg string) {
@@ -920,7 +926,8 @@ func (s *Server) targetAdd(w http.ResponseWriter, r *http.Request, sess *Session
 			if adv := s.scopeAdvice(t.Domain); adv != "" {
 				s.flash(sess, "warn", fmt.Sprintf("Now monitoring %s. Note: %s", t.Domain, adv))
 			}
-			http.Redirect(w, r, "/targets/"+strconv.FormatInt(id, 10), http.StatusSeeOther) // nosemgrep: go.lang.security.injection.open-redirect.open-redirect -- fixed local path plus a database integer id
+			t.ID = id
+			http.Redirect(w, r, domainURL(t), http.StatusSeeOther) // nosemgrep: go.lang.security.injection.open-redirect.open-redirect -- fixed local path; the domain comes from the database and is query-escaped
 			return
 		}
 	}
@@ -986,51 +993,45 @@ func (s *Server) loadTarget(w http.ResponseWriter, r *http.Request, sess *Sessio
 	return t
 }
 
-// targetView renders one domain's page.
+// domainURL is a domain's page: the Findings page filtered to that domain, which also carries the
+// domain's state, scan controls, settings, hosts, certificates, changes and scan history.
+func domainURL(t *Target) string { return "/findings?target=" + url.QueryEscape(t.Domain) }
+
+// targetView sends the old per-domain address (/targets/{id}) to the domain's Findings page, so
+// bookmarks and links in older alert emails keep working. A host filter (?q=) is carried over.
 func (s *Server) targetView(w http.ResponseWriter, r *http.Request, sess *Session) {
 	t := s.loadTarget(w, r, sess)
 	if t == nil {
 		return
 	}
-	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	dest := domainURL(t)
+	if q := strings.TrimSpace(r.URL.Query().Get("q")); q != "" {
+		dest += "&q=" + url.QueryEscape(q)
+	}
+	http.Redirect(w, r, dest, http.StatusMovedPermanently) // nosemgrep: go.lang.security.injection.open-redirect.open-redirect -- fixed local path; the domain comes from the database and is query-escaped
+}
+
+// domainData loads what a domain's page shows besides its findings. q filters the hosts.
+func (s *Server) domainData(t *Target, q string) (map[string]any, error) {
 	inv, invTotal, err := s.store.Inventory(t.Domain, q, 500)
 	if err != nil {
-		s.serverError(w, r, sess, err)
-		return
+		return nil, err
 	}
 	certs, certTotal, err := s.store.ListCerts(t.Domain, 25)
 	if err != nil {
-		s.serverError(w, r, sess, err)
-		return
-	}
-	finds, err := s.store.ListFindings(t.Domain, "")
-	if err != nil {
-		s.serverError(w, r, sess, err)
-		return
-	}
-	var active []Finding
-	resolved := 0
-	for _, f := range finds {
-		if f.Status == "resolved" {
-			resolved++
-		} else {
-			active = append(active, f)
-		}
+		return nil, err
 	}
 	sugg, err := s.store.ListSuggestions(t.Domain, "new")
 	if err != nil {
-		s.serverError(w, r, sess, err)
-		return
+		return nil, err
 	}
 	evs, _, err := s.store.ListEvents(EventFilter{Root: t.Domain, Limit: 30})
 	if err != nil {
-		s.serverError(w, r, sess, err)
-		return
+		return nil, err
 	}
 	scans, err := s.store.ListScans(t.Domain, 15)
 	if err != nil {
-		s.serverError(w, r, sess, err)
-		return
+		return nil, err
 	}
 	settings, _ := s.store.LoadSettings()
 	state, class := targetState(t)
@@ -1038,15 +1039,15 @@ func (s *Server) targetView(w http.ResponseWriter, r *http.Request, sess *Sessio
 	if state == "Scanning" || state == "Queued" {
 		refresh = 15
 	}
-	s.render(w, r, sess, "target", http.StatusOK, map[string]any{
-		"Title": t.Domain, "Nav": "dashboard", "T": t, "Prog": s.eng.Progress().Get(t.ID), "State": state, "StateClass": class, "Refresh": refresh,
+	return map[string]any{
+		"T": t, "Prog": s.eng.Progress().Get(t.ID), "State": state, "StateClass": class, "Refresh": refresh,
 		"Inventory": inv, "InvTotal": invTotal, "Q": q, "Certs": certs, "CertTotal": certTotal,
-		"Findings": active, "Suggestions": sugg, "ResolvedCount": resolved, "Events": evs, "Scans": scans, "DefaultInterval": settings.IntervalMinutes,
-	})
+		"Suggestions": sugg, "Events": evs, "Scans": scans, "DefaultInterval": settings.IntervalMinutes,
+	}, nil
 }
 
-func (s *Server) backToTarget(w http.ResponseWriter, r *http.Request, id int64) {
-	http.Redirect(w, r, "/targets/"+strconv.FormatInt(id, 10), http.StatusSeeOther)
+func (s *Server) backToTarget(w http.ResponseWriter, r *http.Request, t *Target) {
+	http.Redirect(w, r, domainURL(t), http.StatusSeeOther) // nosemgrep: go.lang.security.injection.open-redirect.open-redirect -- fixed local path; the domain comes from the database and is query-escaped
 }
 
 // targetEdit saves edited domain options.
@@ -1059,7 +1060,7 @@ func (s *Server) targetEdit(w http.ResponseWriter, r *http.Request, sess *Sessio
 		r.PostFormValue("interval"), r.PostFormValue("notes"))
 	if err != nil {
 		s.flash(sess, "bad", err.Error())
-		s.backToTarget(w, r, t.ID)
+		s.backToTarget(w, r, t)
 		return
 	}
 	nt.ID = t.ID
@@ -1068,7 +1069,7 @@ func (s *Server) targetEdit(w http.ResponseWriter, r *http.Request, sess *Sessio
 		return
 	}
 	s.flash(sess, "good", "Saved. Changes apply from the next scan.")
-	s.backToTarget(w, r, t.ID)
+	s.backToTarget(w, r, t)
 }
 
 // targetScan queues an immediate scan.
@@ -1093,7 +1094,7 @@ func (s *Server) targetScan(w http.ResponseWriter, r *http.Request, sess *Sessio
 		s.eng.StopScan(t.ID, errScanRestarted)
 		s.audit(sess, r, "scan.active", t.Domain, "running scan restarted with active checks")
 		s.flash(sess, "good", "The running scan was stopped and is starting again with active checks: the agent will connect to this domain's servers for this scan only.")
-		s.backToTarget(w, r, t.ID)
+		s.backToTarget(w, r, t)
 		return
 	}
 	ok, err := s.store.RequestScan(t.ID)
@@ -1121,7 +1122,7 @@ func (s *Server) targetScan(w http.ResponseWriter, r *http.Request, sess *Sessio
 			s.flash(sess, "good", "Scan queued; it will start in a moment.")
 		}
 	}
-	s.backToTarget(w, r, t.ID)
+	s.backToTarget(w, r, t)
 }
 
 // targetPause stops scheduled scans and the scan in flight, if any.
@@ -1136,7 +1137,7 @@ func (s *Server) targetPause(w http.ResponseWriter, r *http.Request, sess *Sessi
 		} else {
 			s.flash(sess, "good", "Monitoring paused. Existing data is kept.")
 		}
-		s.backToTarget(w, r, t.ID)
+		s.backToTarget(w, r, t)
 	}
 }
 
@@ -1149,7 +1150,7 @@ func (s *Server) targetResume(w http.ResponseWriter, r *http.Request, sess *Sess
 		}
 		s.eng.Wake()
 		s.flash(sess, "good", "Monitoring resumed; a scan is starting.")
-		s.backToTarget(w, r, t.ID)
+		s.backToTarget(w, r, t)
 	}
 }
 
@@ -1161,12 +1162,12 @@ func (s *Server) targetDelete(w http.ResponseWriter, r *http.Request, sess *Sess
 	}
 	if strings.TrimSpace(strings.ToLower(r.PostFormValue("confirm"))) != t.Domain {
 		s.flash(sess, "bad", "Type the domain name exactly to confirm deletion.")
-		s.backToTarget(w, r, t.ID)
+		s.backToTarget(w, r, t)
 		return
 	}
 	if t.LastStatus == "running" {
 		s.flash(sess, "warn", "A scan is running for this target; try again when it finishes.")
-		s.backToTarget(w, r, t.ID)
+		s.backToTarget(w, r, t)
 		return
 	}
 	if err := s.store.DeleteTarget(t.ID); err != nil {
@@ -1270,10 +1271,28 @@ func (s *Server) findings(w http.ResponseWriter, r *http.Request, sess *Session)
 			return sevRank(a.Severity) > sevRank(b.Severity)
 		})
 	}
-	s.render(w, r, sess, "findings", http.StatusOK, map[string]any{
+	data := map[string]any{
 		"Title": "Findings", "Nav": "findings", "Findings": list, "Targets": names, "Target": root, "Status": status, "Severity": sev, "Trust": trust,
 		"Next": r.URL.RequestURI(), "Grouped": grouped, "PerHost": perHost,
-	})
+	}
+	// One domain chosen: this is that domain's page, with its scan controls, settings and inventory.
+	if root != "" {
+		t, err := s.store.GetTargetByDomain(root)
+		if err != nil {
+			s.serverError(w, r, sess, err)
+			return
+		}
+		more, err := s.domainData(t, strings.TrimSpace(q.Get("q")))
+		if err != nil {
+			s.serverError(w, r, sess, err)
+			return
+		}
+		for k, v := range more {
+			data[k] = v
+		}
+		data["Title"] = t.Domain
+	}
+	s.render(w, r, sess, "findings", http.StatusOK, data)
 }
 
 var eventKinds = []string{"subdomain", "cert", "dns-a", "dns-aaaa", "dns-cname", "dns-ns", "dns-mx", "dns-txt",

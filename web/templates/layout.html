@@ -55,11 +55,11 @@
     <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="{{.CSRF}}"><button class="link" type="submit">Sign out</button></form> {{/* nosemgrep: python.django.security.django-no-csrf-token.django-no-csrf-token -- Go template: the csrf hidden field is checked by s.auth or checkPreCSRF */}}
   </div>
 </header>
+{{with .Update}}<div class="updatebar noprint" role="status"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg><strong>New version available</strong><span>EASM Agent {{.Version}} is out; this agent runs {{.Running}}.</span>{{if .Managed}}<span>Deploy the {{.Version}} image to update.</span>{{else if .Admin}}<a class="btn small primary" href="/health#updates">Review and install</a>{{else}}<span>An administrator can install it.</span>{{end}}{{if .Notes}}<a href="{{.Notes}}" target="_blank" rel="noopener noreferrer">Release notes</a>{{end}}</div>{{end}}
 {{if .Scanning}}<div class="scanbar" role="status"><span class="pulse" aria-hidden="true"></span>Scanning <strong>{{.Scanning}}</strong>…</div>{{end}}
 {{end}}
 <main class="wrap" id="main">
 {{with .Flash}}<div class="flash {{.Kind}}" role="status">{{.Text}}</div>{{end}}
-{{with .UpdateBanner}}<div class="flash info noprint" role="status">EASM Agent {{.}} is available. <a href="/health#updates">See what&rsquo;s new and install it</a></div>{{end}}
 {{template "content" .}}
 </main>
 <footer class="wrap foot">EASM Agent {{.Version}} · passive reconnaissance only. Monitor only domains you own or are authorised to assess.</footer>

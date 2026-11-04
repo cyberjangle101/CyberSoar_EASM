@@ -7,7 +7,7 @@
 {{with .R}}
 {{if .Targets}}<section class="card">
   <h2>Entities <span class="badge info">{{.TargetTotal}}</span></h2>
-  <ul class="plain">{{range .Targets}}<li><a href="/targets/{{.ID}}" class="mono">{{.Domain}}</a> <span class="muted small">· <a href="/findings?target={{.Domain}}">findings</a> · <a href="/assets?target={{.Domain}}">assets</a></span></li>{{end}}</ul>
+  <ul class="plain">{{range .Targets}}<li><a href="/findings?target={{.Domain | urlquery}}" class="mono">{{.Domain}}</a> <span class="muted small">· <a href="/findings?target={{.Domain}}">findings</a> · <a href="/assets?target={{.Domain}}">assets</a></span></li>{{end}}</ul>
 </section>{{end}}
 {{if .Findings}}<section class="card">
   <h2>Findings <span class="badge info">{{.FindingTotal}}</span></h2>
