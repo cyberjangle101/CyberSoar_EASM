@@ -998,17 +998,13 @@ func (s *Server) loadTarget(w http.ResponseWriter, r *http.Request, sess *Sessio
 func domainURL(t *Target) string { return "/findings?target=" + url.QueryEscape(t.Domain) }
 
 // targetView sends the old per-domain address (/targets/{id}) to the domain's Findings page, so
-// bookmarks and links in older alert emails keep working. A host filter (?q=) is carried over.
+// bookmarks and links in older alert emails keep working.
 func (s *Server) targetView(w http.ResponseWriter, r *http.Request, sess *Session) {
 	t := s.loadTarget(w, r, sess)
 	if t == nil {
 		return
 	}
-	dest := domainURL(t)
-	if q := strings.TrimSpace(r.URL.Query().Get("q")); q != "" {
-		dest += "&q=" + url.QueryEscape(q)
-	}
-	http.Redirect(w, r, dest, http.StatusMovedPermanently) // nosemgrep: go.lang.security.injection.open-redirect.open-redirect -- fixed local path; the domain comes from the database and is query-escaped
+	http.Redirect(w, r, domainURL(t), http.StatusMovedPermanently) // nosemgrep: go.lang.security.injection.open-redirect.open-redirect -- fixed local path; the domain comes from the database and is query-escaped
 }
 
 // domainData loads what a domain's page shows besides its findings. q filters the hosts.

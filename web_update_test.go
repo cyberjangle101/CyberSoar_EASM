@@ -56,8 +56,7 @@ func TestUpdateFromSystemHealth(t *testing.T) {
 	if _, ab, _ := an.get("/"); !strings.Contains(ab, "New version available") || strings.Contains(ab, "Review and install") || !strings.Contains(ab, "An administrator can install it") {
 		t.Error("an analyst should see the banner without the install link")
 	}
-	_, body, _ := admin.get("/")
-	_, body, _ = admin.get("/health")
+	_, body, _ := admin.get("/health")
 	for _, want := range []string{"Version 1.9.0 available", "notes for v1.9.0", "Back up and install 1.9.0", "signed checksums"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("updates card lacks %q", want)
