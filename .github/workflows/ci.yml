@@ -32,6 +32,11 @@ jobs:
           check-latest: true
           cache: true
 
+      # The same check as the release workflow's full test gate, so a formatting slip fails here
+      # rather than on a release candidate.
+      - name: Format
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; echo "gofmt: the files above need formatting"; exit 1; }
+
       - name: Vet
         run: go vet ./...
 
