@@ -21,7 +21,7 @@ func TestVersionSeenMatchesExactProductVersions(t *testing.T) {
 		{[]string{"cpe:/a:php:php:7.4.3"}, []string{"nginx", "PHP/7.4.3"}, "PHP/7.4.3"},
 		{[]string{"cpe:/a:apache:http_server:2.4.49"}, []string{"Apache/2.4.58 (Unix)"}, ""}, // upgraded since: the CVEs no longer apply
 		{[]string{"cpe:/a:apache:http_server:2.4.4"}, []string{"Apache/2.4.49"}, ""},         // a prefix is not the version
-		{[]string{"cpe:/a:apache:http_server"}, []string{"Apache"}, ""},                     // no version: nothing to confirm
+		{[]string{"cpe:/a:apache:http_server"}, []string{"Apache"}, ""},                      // no version: nothing to confirm
 		{[]string{"cpe:/a:openbsd:openssh:8.2"}, []string{"nginx/8.2"}, ""},                  // same number, other product
 		{nil, []string{"Apache/2.4.49"}, ""},
 	}
