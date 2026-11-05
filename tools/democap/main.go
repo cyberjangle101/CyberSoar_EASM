@@ -61,7 +61,7 @@ func main() {
 	}
 	defer func() { _ = os.RemoveAll(profile) }()
 	const port = "9339"
-	cmd := exec.Command(exe, "--headless=new", "--remote-debugging-port="+port, "--user-data-dir="+profile, //nolint:gosec // G204: a local browser for a local capture
+	cmd := exec.Command(exe, "--headless=new", "--remote-debugging-port="+port, "--user-data-dir="+profile, //nolint:gosec // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- G204: a developer tool starting the browser its own user chose (-browser or the usual install path) for a local capture; no outside input
 		"--remote-allow-origins=http://127.0.0.1", "--no-first-run", "--hide-scrollbars", "--force-device-scale-factor=1", "about:blank")
 	if err := cmd.Start(); err != nil {
 		log.Fatal(err)
