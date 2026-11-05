@@ -743,7 +743,7 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 
 * **Finding type:** `known-vuln`
 * **Collection:** Third-party intelligence (needs a second source to be trusted)
-* **Triggered when:** Shodan lists CVEs for the software versions seen on an address. CVEs in CISA KEV come first, then the highest FIRST EPSS scores.
+* **Triggered when:** Shodan lists CVEs for the software versions seen on an address. CVEs in CISA KEV come first, then the highest FIRST EPSS scores. Shodan data alone leaves the finding unconfirmed (not counted or alerted): with active checks on, it is trusted when the agent's own web check sees the server announce the same product at the same version (Server or X-Powered-By header), or when an analyst confirms it.
 * **Severity:** High with any CVE in CISA KEV, an EPSS of 50% or more, or 10 or more CVEs; otherwise Medium
 * **Evidence:** Exposure intelligence (CVE list from Shodan InternetDB / Shodan), ranked by CISA KEV and FIRST EPSS
 * **Why it matters:** The service banners on this address match software versions with published vulnerabilities. Matches are inferred from banners, so some may not apply (for example if fixes were back-ported), but each is worth verifying.

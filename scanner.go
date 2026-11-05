@@ -283,6 +283,9 @@ func (s *Scanner) scanTarget(ctx context.Context, t *Target) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
+	if intel != nil && act != nil {
+		intel.banners = act.banners() // lets a CVE finding be corroborated by what the agent saw itself
+	}
 
 	// 4d. Wider discovery (optional): look-alikes, related domains, leaked accounts, public code
 	ext := s.gatherExtra(ctx, t, disc, results, wildcard)

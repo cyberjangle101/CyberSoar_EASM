@@ -3,6 +3,7 @@
 //	rsrc_windows_amd64.syso  the Windows icon resource linked into easm-agent.exe
 //	                         (Explorer, the taskbar and the notification-area icon)
 //	web/static/favicon.png   the browser-tab icon of the web interface
+//	web/static/logo.png      the logo in the web interface (sidebar, sign-in and setup pages)
 //
 // The logo is drawn from code, so the committed files can be reproduced and
 // reviewed: a radar sweep with one amber contact on a blue tile ("scanning the
@@ -42,7 +43,15 @@ func main() {
 	if err := os.WriteFile("web/static/favicon.png", fav, 0o644); err != nil { //nolint:gosec // G306: a source file of the repository
 		fail(err)
 	}
-	fmt.Println("wrote rsrc_windows_amd64.syso and web/static/favicon.png")
+	// The logo in the web interface's sidebar and on the sign-in pages, drawn large enough to stay sharp on high-DPI screens.
+	logo, err := encodePNG(draw(128))
+	if err != nil {
+		fail(err)
+	}
+	if err := os.WriteFile("web/static/logo.png", logo, 0o644); err != nil { //nolint:gosec // G306: a source file of the repository
+		fail(err)
+	}
+	fmt.Println("wrote rsrc_windows_amd64.syso, web/static/favicon.png and web/static/logo.png")
 }
 
 func fail(err error) {

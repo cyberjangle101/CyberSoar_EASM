@@ -1,0 +1,24 @@
+# The demo video, scene by scene (tools/demovideo). Frames come from docs/demo/script.txt.
+hold card-intro 4
+fade 0.6
+play v-dashboard 4
+fade 0.6
+hold card-findings 3
+fade 0.6
+play v-findings 6
+fade 0.6
+hold card-evidence 3
+fade 0.6
+play v-evidence 3
+fade 0.6
+hold card-domain 3
+fade 0.6
+play v-domain 6
+fade 0.6
+hold card-report 3
+fade 0.6
+play v-report 6
+fade 0.6
+play v-dark 3
+fade 0.6
+hold card-outro 5

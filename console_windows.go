@@ -19,6 +19,19 @@ func inNewConsole(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: createNewConsole}
 }
 
+// inBackground starts cmd with no console window at all. An update restart uses it
+// when nothing has to be typed (the key is protected by the Windows account, or the
+// passphrase comes from the environment), so no window appears that could stay open.
+func inBackground(cmd *exec.Cmd) {
+	const detachedProcess = 0x00000008
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: detachedProcess}
+}
+
+// ownConsoleFiles are the CONIN$ and CONOUT$ handles useOwnConsole opened. They are
+// connections to the console: leaveConsole closes them, or the console host stays
+// alive after the process detaches and its window never closes.
+var ownConsoleFiles []*os.File
+
 // useOwnConsole points stdin, stdout and stderr at this process's console window
 // when they are not attached to it. An agent restarted by an update gets NUL for
 // all three, so without this it could not ask for the key passphrase and would
@@ -30,11 +43,13 @@ func useOwnConsole() {
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
 		if in, err := os.OpenFile("CONIN$", os.O_RDWR, 0); err == nil {
 			os.Stdin = in
+			ownConsoleFiles = append(ownConsoleFiles, in)
 		}
 	}
 	if !term.IsTerminal(int(os.Stdout.Fd())) || !term.IsTerminal(int(os.Stderr.Fd())) {
 		if out, err := os.OpenFile("CONOUT$", os.O_RDWR, 0); err == nil {
 			os.Stdout, os.Stderr = out, out
+			ownConsoleFiles = append(ownConsoleFiles, out)
 		}
 	}
 }
@@ -71,13 +86,16 @@ func leaveConsole() bool {
 	if procFreeConsole.Find() != nil {
 		return false
 	}
-	r, _, _ := procFreeConsole.Call()
-	if r == 0 {
-		return false
-	}
-	// The standard handles now point at nothing; send any stray output nowhere.
+	// Point everything that writes to or reads from the console at nothing first, then
+	// let go of the console handles this process opened itself, then detach.
 	if null, err := os.OpenFile(os.DevNull, os.O_RDWR, 0); err == nil {
 		os.Stdin, os.Stdout, os.Stderr = null, null, null
+		promptOut = null
 	}
-	return true
+	for _, f := range ownConsoleFiles {
+		_ = f.Close()
+	}
+	ownConsoleFiles = nil
+	r, _, _ := procFreeConsole.Call()
+	return r != 0
 }

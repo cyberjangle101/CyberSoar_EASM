@@ -1,8 +1,14 @@
+<p align="center"><img src="web/static/logo.png" width="88" height="88" alt="EASM Agent logo: a radar sweep with one contact"></p>
+
 # Cybersour Attack Surface Scanner
 
 A lightweight, single-binary agent for continuous **External Attack Surface Management (EASM)**. It runs as a persistent background service on Windows or Linux, watches the internet-facing footprint of the organisations you tell it about, and emails you only when something **changes**.
 
 > **Status:** v1.9.18. What changed in each release is in [CHANGELOG.md](CHANGELOG.md). Every check the agent runs is listed in [docs/RULES.md](docs/RULES.md).
+
+![A one-minute tour of EASM Agent: the dashboard, findings with their risk and fix, the evidence behind a finding, a domain's page and the report, using a made-up company](docs/images/demo.gif)
+
+*The tour uses a made-up company (acme-corp.test) from the test lab: nothing real was scanned. How it is made: [docs/DEMO.md](docs/DEMO.md).*
 
 ## Why
 
@@ -20,6 +26,17 @@ Attack surfaces drift. A forgotten subdomain, a new certificate or an unexpected
 - **Encrypted local state:** an embedded SQLite database, encrypted at rest, so there is nothing else to install
 - **Runs anywhere:** a workstation program, a Windows or Linux service, or a container on Docker and Kubernetes ([docs/KUBERNETES.md](docs/KUBERNETES.md))
 - **Signed self-updates:** the agent installs a new release only after checking its signature
+
+## Screenshots
+
+| | |
+|---|---|
+| [![Dashboard: monitored domains, hosts, open findings and recent changes](docs/images/dashboard.png)](docs/images/dashboard.png) **Dashboard.** Domains, hosts, open findings and the changes of the last day at a glance. | [![Findings: each with its severity, source of evidence, risk and recommended fix](docs/images/findings.png)](docs/images/findings.png) **Findings.** Every finding says where the evidence came from, why it matters and how to fix it. |
+| [![A domain's page: scan controls, settings, findings, hosts, certificates and history](docs/images/domain.png)](docs/images/domain.png) **One page per domain.** Scan controls and settings at the top, then its findings, hosts, certificates, changes and scan history. | [![The evidence behind a finding, with links to check it yourself](docs/images/evidence.png)](docs/images/evidence.png) **Evidence.** What was found, by which check, when, and links to confirm it yourself. |
+| [![Assets: one searchable inventory of domains, addresses, services and certificates](docs/images/assets.png)](docs/images/assets.png) **Assets.** One searchable inventory of everything found. | [![Report: posture score, charts and exports](docs/images/report.png)](docs/images/report.png) **Reports.** A posture score and charts, exported as PDF, CSV, JSON, SARIF or STIX. |
+
+[![Dark mode](docs/images/dashboard-dark.png)](docs/images/dashboard-dark.png)
+*Light and dark mode: the interface follows your system until you choose with the moon/sun button.*
 
 ## Reliability and safety
 
@@ -69,7 +86,7 @@ To run it on a server for several people, see *Workstation or server* below. For
 | Page | Purpose |
 |---|---|
 | Dashboard | Add entities, see status and open findings. Running scans show a live percentage bar with the current stage (e.g. "Resolving DNS · 120 of 400 hosts") and flag a source that has gone quiet |
-| Findings | Severity, finding, source of evidence, risk, recommended fix; acknowledge / reopen |
+| Findings | Severity, finding, source of evidence, risk, recommended fix; acknowledge / reopen. Choose one domain (or click it on the Dashboard) for **its page**: scan buttons, its settings at the top, then its hosts, certificates, changes and scan history |
 | Assets | One searchable inventory (click any row for its detail page: registration and certificate dates, owner/ASN, live reverse DNS, open ports, related findings): domains, IP addresses (with ASN, ports, CVEs), open services, certificates, DNS records, vulnerabilities, registration. CSV export |
 | Events | The change log that drives email alerts |
 | Report | Summary for any period, CSV/JSON export |
