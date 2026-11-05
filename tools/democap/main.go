@@ -126,12 +126,18 @@ var stopBrowser = func() {}
 
 func fatal(v ...any) {
 	stopBrowser()
-	log.Fatal(v...)
+	log.Fatal(oneLine(fmt.Sprint(v...)))
 }
 
 func fatalf(format string, v ...any) {
 	stopBrowser()
-	log.Fatalf(format, v...)
+	log.Fatal(oneLine(fmt.Sprintf(format, v...)))
+}
+
+// oneLine keeps a message that includes text from the script file on one log line.
+func oneLine(s string) string {
+	s = strings.ReplaceAll(s, "\n", " ")
+	return strings.ReplaceAll(s, "\r", " ")
 }
 
 func arg(w []string, i int, def string) string {
