@@ -6,7 +6,7 @@
 <section class="card guide" id="guide">
   <div class="head"><h2>Welcome: how this works</h2>
     <form method="post" action="/guide/dismiss" class="inline"><input type="hidden" name="csrf" value="{{.CSRF}}"><button class="btn small" type="submit">Hide this</button></form></div> {{/* nosemgrep: python.django.security.django-no-csrf-token.django-no-csrf-token -- Go template: the csrf hidden field is checked by s.auth or checkPreCSRF */}}
-  <p>EASM Agent shows your organisation as an outsider sees it and tells you when something <strong>changes</strong>: new sub-domains and servers, take-over risks, expiring certificates, weak email protection, exposed services.</p>
+  <p>CyberSoar EASM shows your organisation as an outsider sees it and tells you when something <strong>changes</strong>: new sub-domains and servers, take-over risks, expiring certificates, weak email protection, exposed services.</p>
   <ol class="steps">
     <li>{{if .IsAdmin}}Add your main domain below (for example <span class="mono">example.com</span>).{{else}}Ask an administrator to add your main domain.{{end}}</li>
     <li>The first scan quietly records what exists today; changes after that are reported.</li>

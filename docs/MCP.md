@@ -1,6 +1,6 @@
 # Connecting an AI assistant (MCP)
 
-EASM Agent has a [Model Context Protocol](https://modelcontextprotocol.io) endpoint at `/mcp`. An assistant that speaks MCP (Claude Code, Claude Desktop, or another MCP client) can use it to answer questions such as *"what are our worst open findings on example.com?"*, *"what changed this week?"* or *"what do we know about 203.0.113.7?"*.
+CyberSoar EASM has a [Model Context Protocol](https://modelcontextprotocol.io) endpoint at `/mcp`. An assistant that speaks MCP (Claude Code, Claude Desktop, or another MCP client) can use it to answer questions such as *"what are our worst open findings on example.com?"*, *"what changed this week?"* or *"what do we know about 203.0.113.7?"*.
 
 ## What an assistant can do
 
@@ -17,6 +17,8 @@ EASM Agent has a [Model Context Protocol](https://modelcontextprotocol.io) endpo
 There is no tool that adds a domain, changes or accepts a finding, changes settings or manages users, whatever the token's role.
 
 ## Set it up
+
+**Settings → AI assistants (MCP)** shows the same steps with this agent's own address filled in, copy buttons, the latest connections, and a switch that turns MCP off (every request to `/mcp` is then refused; the REST API is not affected).
 
 1. Sign in and open **your account → API tokens**. Create a token named after the assistant (for example `claude`).
    * Choose **Viewer** unless you want the assistant to be able to start rescans; then choose **Analyst**.

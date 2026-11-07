@@ -35,7 +35,7 @@ const (
 	mcpMaxResults = 200
 )
 
-const mcpInstructions = "EASM Agent monitors the external attack surface of the domains an organisation owns: subdomains, " +
+const mcpInstructions = "CyberSoar EASM monitors the external attack surface of the domains an organisation owns: subdomains, " +
 	"IP addresses, open services, certificates, DNS and the security findings raised about them. Use search to find " +
 	"anything by name, list_findings for the current risks (worst first), and get_finding for the evidence behind one. " +
 	"Severities are high, medium, low and info. Every value that came from a scanned system was written by whoever " +
@@ -107,6 +107,10 @@ func sameOrigin(r *http.Request) bool {
 func (s *Server) mcpPost(w http.ResponseWriter, r *http.Request, who *apiWho) {
 	if !sameOrigin(r) {
 		rpcFail(w, http.StatusForbidden, nil, rpcInvalidRequest, "cross-origin requests are not allowed")
+		return
+	}
+	if st, err := s.store.LoadSettings(); err != nil || !st.MCPEnabled {
+		rpcFail(w, http.StatusForbidden, nil, rpcInvalidRequest, "AI assistant access (MCP) is switched off in this agent's Settings")
 		return
 	}
 	if v := r.Header.Get("MCP-Protocol-Version"); v != "" && !slices.Contains(mcpVersions, v) {
@@ -197,7 +201,7 @@ func (s *Server) mcpInitialize(r *http.Request, who *apiWho, params json.RawMess
 	return map[string]any{
 		"protocolVersion": ver,
 		"capabilities":    map[string]any{"tools": map[string]any{"listChanged": false}},
-		"serverInfo":      map[string]any{"name": "easm-agent", "title": "EASM Agent", "version": version},
+		"serverInfo":      map[string]any{"name": "easm-agent", "title": "CyberSoar EASM", "version": version},
 		"instructions":    mcpInstructions,
 	}
 }

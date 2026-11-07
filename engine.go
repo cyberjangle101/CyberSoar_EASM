@@ -517,5 +517,5 @@ func (e *Engine) SendTestEmail(ctx context.Context) error {
 	sctx, cancel := context.WithTimeout(ctx, 3*cfg.SMTP.Timeout)
 	defer cancel()
 	return NewMailer(cfg.SMTP).WithHealth(e.health).Send(sctx, cfg.SMTP.SubjectPrefix+" test message",
-		"EASM agent SMTP test: delivery works.\n", "<p>EASM agent SMTP test: delivery works.</p>")
+		"CyberSoar EASM SMTP test: delivery works.\n", "<p>CyberSoar EASM SMTP test: delivery works.</p>")
 }

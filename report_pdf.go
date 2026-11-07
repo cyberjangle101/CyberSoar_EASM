@@ -61,7 +61,7 @@ func RenderReportPDF(rep *Report, agent string) ([]byte, error) {
 	p.SetAutoPageBreak(false, 0)
 	p.SetTitle("External attack surface report: "+rep.Heading(), true)
 	p.SetAuthor(rep.PreparedBy, true)
-	p.SetCreator("EASM Agent "+agent, false)
+	p.SetCreator("CyberSoar EASM "+agent, false)
 	p.SetCreationDate(rep.Generated)
 	p.AliasNbPages("{nb}")
 	d := &pdfDoc{p: p, tr: p.UnicodeTranslatorFromDescriptor("")}
@@ -69,7 +69,7 @@ func RenderReportPDF(rep *Report, agent string) ([]byte, error) {
 		p.SetY(-12)
 		p.SetFont("Helvetica", "", 8)
 		d.color(pdfMuted)
-		p.CellFormat(pdfWidth/2, 5, d.tr(clip("EASM Agent "+agent+" · "+rep.Heading(), 70)), "", 0, "L", false, 0, "")
+		p.CellFormat(pdfWidth/2, 5, d.tr(clip("CyberSoar EASM "+agent+" · "+rep.Heading(), 70)), "", 0, "L", false, 0, "")
 		p.CellFormat(pdfWidth/2, 5, fmt.Sprintf("Page %d of {nb}", p.PageNo()), "", 0, "R", false, 0, "")
 	})
 

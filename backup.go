@@ -287,7 +287,7 @@ func RestoreBackup(zipPath, dataDir string, force bool, now time.Time) ([]string
 	}
 	mf, ok := files[manifestName]
 	if !ok || files["easm.db"] == nil {
-		return nil, errors.New("this is not an EASM Agent backup (manifest.json or easm.db is missing)")
+		return nil, errors.New("this is not a CyberSoar EASM backup (manifest.json or easm.db is missing)")
 	}
 	var m BackupManifest
 	if err := readZipJSON(mf, &m); err != nil {

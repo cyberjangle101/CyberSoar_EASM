@@ -48,7 +48,7 @@ func TestUpdateFromSystemHealth(t *testing.T) {
 	}
 	for _, p := range []string{"/", "/findings", "/assets"} {
 		_, body, _ := admin.get(p)
-		if !strings.Contains(body, "New version available") || !strings.Contains(body, "EASM Agent 1.9.0 is out; this agent runs") || !strings.Contains(body, "Review and install") {
+		if !strings.Contains(body, "New version available") || !strings.Contains(body, "CyberSoar EASM 1.9.0 is out; this agent runs") || !strings.Contains(body, "Review and install") {
 			t.Errorf("admins should see the New version available banner, with the install link, on %s", p)
 		}
 	}

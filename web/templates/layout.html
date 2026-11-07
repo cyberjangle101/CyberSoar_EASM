@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="{{if .Theme}}{{.Theme}}{{else}}light dark{{end}}">
-<title>{{if .Title}}{{.Title}} · {{end}}EASM Agent</title>
+<title>{{if .Title}}{{.Title}} · {{end}}CyberSoar EASM</title>
 {{if .Refresh}}<meta http-equiv="refresh" content="{{.Refresh}}">{{end}}
 <link rel="icon" type="image/png" href="/static/favicon.png">
 <link rel="stylesheet" href="/static/app.css">
@@ -15,7 +15,7 @@
 <a class="skip" href="#main">Skip to content</a>
 <aside class="side" id="side" aria-label="Main menu">
   <div class="side-head">
-    <a class="brand" href="/"><img class="logo" src="/static/logo.png" alt="" width="30" height="30"><span>EASM Agent</span></a>
+    <a class="brand" href="/" aria-label="CyberSoar EASM, dashboard"><img class="wordmark" src="/static/wordmark.png" alt="CyberSoar EASM" width="133" height="44"></a>
     <a class="side-close" href="#main" aria-label="Close menu">×</a>
   </div>
   <nav>
@@ -55,14 +55,16 @@
     <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="{{.CSRF}}"><button class="link" type="submit">Sign out</button></form> {{/* nosemgrep: python.django.security.django-no-csrf-token.django-no-csrf-token -- Go template: the csrf hidden field is checked by s.auth or checkPreCSRF */}}
   </div>
 </header>
-{{with .Update}}<div class="updatebar noprint" role="status"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg><strong>New version available</strong><span>EASM Agent {{.Version}} is out; this agent runs {{.Running}}.</span>{{if .Managed}}<span>Deploy the {{.Version}} image to update.</span>{{else if .Admin}}<a class="btn small primary" href="/health#updates">Review and install</a>{{else}}<span>An administrator can install it.</span>{{end}}{{if .Notes}}<a href="{{.Notes}}" target="_blank" rel="noopener noreferrer">Release notes</a>{{end}}</div>{{end}}
+{{with .Update}}<div class="updatebar noprint" role="status"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg><strong>New version available</strong><span>CyberSoar EASM {{.Version}} is out; this agent runs {{.Running}}.</span>{{if .Managed}}<span>Deploy the {{.Version}} image to update.</span>{{else if .Admin}}<a class="btn small primary" href="/health#updates">Review and install</a>{{else}}<span>An administrator can install it.</span>{{end}}{{if .Notes}}<a href="{{.Notes}}" target="_blank" rel="noopener noreferrer">Release notes</a>{{end}}</div>{{end}}
 {{if .Scanning}}<div class="scanbar" role="status"><span class="pulse" aria-hidden="true"></span>Scanning <strong>{{.Scanning}}</strong>…</div>{{end}}
+{{else}}
+<header class="authbrand"><img src="/static/mark.png" alt="CyberSoar EASM" width="96" height="94"></header>
 {{end}}
 <main class="wrap" id="main">
 {{with .Flash}}<div class="flash {{.Kind}}" role="status">{{.Text}}</div>{{end}}
 {{template "content" .}}
 </main>
-<footer class="wrap foot">EASM Agent {{.Version}} · passive reconnaissance only. Monitor only domains you own or are authorised to assess.</footer>
+<footer class="wrap foot">CyberSoar EASM {{.Version}} · passive reconnaissance only. Monitor only domains you own or are authorised to assess.</footer>
 {{if .User}}</div>{{end}}
 </body>
 </html>{{end}}

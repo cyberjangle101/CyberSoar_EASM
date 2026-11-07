@@ -119,7 +119,7 @@ func (s *Server) prepareSetupCode() (string, error) {
 	g.code = c
 	if s.boot.DataDir != "" {
 		g.file = filepath.Join(s.boot.DataDir, setupCodeFile)
-		text := fmt.Sprintf("EASM Agent first-administrator setup code:\r\n\r\n    %s\r\n\r\n"+
+		text := fmt.Sprintf("CyberSoar EASM first-administrator setup code:\r\n\r\n    %s\r\n\r\n"+
 			"Enter it on the setup page with the first administrator's name and password.\r\n"+
 			"It changes every time the agent starts and stops working once that account exists;\r\n"+
 			"this file is then deleted.\r\n", groupCode(c))

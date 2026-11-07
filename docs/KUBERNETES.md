@@ -1,4 +1,4 @@
-# Running EASM Agent on Kubernetes (GKE, AKS, EKS)
+# Running CyberSoar EASM on Kubernetes (GKE, AKS, EKS)
 
 The agent ships as a container image, `ghcr.io/cyberjangle101/easm-agent:<version>`, for linux/amd64 and linux/arm64. Kubernetes manifests are in [`deploy/kubernetes`](../deploy/kubernetes).
 

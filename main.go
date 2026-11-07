@@ -162,7 +162,7 @@ func (p *program) Start(service.Service) error {
 // closes that window so the agent keeps running in the background. Stop it from
 // the icon, from System health → Stop agent, or run it as a service.
 func (p *program) desktopStart(link string) {
-	fmt.Printf("\nEASM Agent %s is running at %s\n", version, link)
+	fmt.Printf("\nCyberSoar EASM %s is running at %s\n", version, link)
 	page := link
 	if code := p.web.SetupCode(); code != "" {
 		// The page the browser opens fills the code in from the address fragment, which is never sent to the server.
@@ -178,8 +178,8 @@ func (p *program) desktopStart(link string) {
 	leave := !p.boot.KeepConsole && ownsConsole()
 	fallbackLog := filepath.Join(p.boot.DataDir, "easm.log")
 	p.trayStop = startTray(trayOptions{
-		Tip:     fmt.Sprintf("EASM Agent %s - %s", version, link),
-		Notice:  "EASM Agent is running in the background. Click this icon to open it, or right-click it to stop the agent.",
+		Tip:     fmt.Sprintf("CyberSoar EASM %s - %s", version, link),
+		Notice:  "CyberSoar EASM is running in the background. Click this icon to open it, or right-click it to stop the agent.",
 		Open:    func() { _ = openBrowser(link) },
 		Stop:    p.stopInteractive,
 		LogFile: func() string { return p.logFile(fallbackLog) },
@@ -190,7 +190,7 @@ func (p *program) desktopStart(link string) {
 	}
 	where := "To stop it, sign in as an administrator and use System health → Stop agent."
 	if p.trayStop != nil {
-		where = "Its icon is in the notification area next to the clock: click it to open EASM Agent,\nor right-click it to stop the agent."
+		where = "Its icon is in the notification area next to the clock: click it to open CyberSoar EASM,\nor right-click it to stop the agent."
 	}
 	fmt.Printf("This window closes in a few seconds; the agent keeps running in the background.\n%s\nLog file: %s\n\n", where, p.logFile(fallbackLog))
 	go func() {
@@ -355,7 +355,7 @@ func (p *program) Stop(service.Service) error {
 
 // printDataLocation tells the person at the start-up prompt which files it unlocks.
 func printDataLocation(w io.Writer, boot *Bootstrap) {
-	_, _ = fmt.Fprintf(w, "EASM Agent %s\n  Data folder: %s\n  Database:    %s\n  Key file:    %s\n\n",
+	_, _ = fmt.Fprintf(w, "CyberSoar EASM %s\n  Data folder: %s\n  Database:    %s\n  Key file:    %s\n\n",
 		version, boot.DataDir, boot.DBPath(), boot.KeyPath())
 }
 
@@ -497,7 +497,7 @@ func main() {
 		// key passphrase can be asked for (see useOwnConsole).
 		useOwnConsole()
 		promptOut = os.Stderr
-		_, _ = fmt.Fprintf(os.Stderr, "EASM Agent was updated to %s and is starting again.\n\n", version)
+		_, _ = fmt.Fprintf(os.Stderr, "CyberSoar EASM was updated to %s and is starting again.\n\n", version)
 	}
 	if *showVer {
 		fmt.Println("easm-agent", version)
@@ -583,7 +583,7 @@ func main() {
 	args := serviceArgs(boot, *cfgPath, *plainHTTP, *noPass)
 	prg := &program{boot: boot}
 	cfg := &service.Config{
-		Name: "easm-agent", DisplayName: "EASM Agent",
+		Name: "easm-agent", DisplayName: "CyberSoar EASM",
 		Description: "Continuous external attack surface monitoring with a web interface",
 		Arguments:   args,
 	}
@@ -605,7 +605,7 @@ func main() {
 		if addr := installedServiceAddress(); addr != "" {
 			if st, err := svc.Status(); err == nil && st == service.StatusRunning {
 				// Double-clicked on a computer where the agent already runs as a service: open that one instead of starting a second, empty agent.
-				fmt.Printf("EASM Agent already runs as a service on this computer. Opening %s\n", addr)
+				fmt.Printf("CyberSoar EASM already runs as a service on this computer. Opening %s\n", addr)
 				_ = openBrowser(addr)
 				if ownsConsole() {
 					time.Sleep(fatalPause)

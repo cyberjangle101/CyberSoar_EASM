@@ -172,7 +172,7 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           pre=""; case "$TAG" in *-rc.*) pre="--prerelease" ;; esac
-          gh release create "$TAG" dist/* --verify-tag $pre --title "EASM Agent ${TAG#v}" --generate-notes
+          gh release create "$TAG" dist/* --verify-tag $pre --title "CyberSoar EASM ${TAG#v}" --generate-notes
 
   image:
     name: Container image

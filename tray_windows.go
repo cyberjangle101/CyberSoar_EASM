@@ -18,7 +18,7 @@ import (
 // The notification-area ("system tray") icon of an interactive agent on Windows.
 //
 // Once the console window has closed, the icon is how a person at the desktop can
-// tell the agent is running and what it is: it shows the EASM Agent logo (the
+// tell the agent is running and what it is: it shows CyberSoar EASM logo (the
 // program's own icon resource, see rsrc_windows_amd64.syso and tools/icon), a
 // tooltip with the version and address, and a menu to open the dashboard, open the
 // log file or stop the agent. It is drawn with plain Win32 calls, so no extra
@@ -28,8 +28,8 @@ import (
 type trayOptions struct {
 	Tip     string        // tooltip: name, version and address
 	Notice  string        // shown once as a notification when the icon appears ("" = none)
-	Open    func()        // left click, or "Open EASM Agent"
-	Stop    func()        // "Stop EASM Agent", after a confirmation
+	Open    func()        // left click, or "Open CyberSoar EASM"
+	Stop    func()        // "Stop CyberSoar EASM", after a confirmation
 	LogFile func() string // the file "Open log file" opens
 }
 
@@ -213,7 +213,7 @@ func (t *trayState) create() error {
 		}
 	}
 	// A hidden top-level window (not message-only: the menu needs a window that can be brought to the front).
-	wnd, _, err := procCreateWindow.Call(0, uintptr(unsafe.Pointer(class)), uintptr(unsafe.Pointer(utf16("EASM Agent"))),
+	wnd, _, err := procCreateWindow.Call(0, uintptr(unsafe.Pointer(class)), uintptr(unsafe.Pointer(utf16("CyberSoar EASM"))),
 		0, 0, 0, 0, 0, 0, 0, inst, 0)
 	if wnd == 0 {
 		return err
@@ -242,7 +242,7 @@ func (t *trayState) notify(op uintptr, notice string) bool {
 		d.InfoFlags = niifUser
 		d.BalloonIcon = t.icon
 		copyUTF16(d.Info[:], notice)
-		copyUTF16(d.InfoTitle[:], "EASM Agent")
+		copyUTF16(d.InfoTitle[:], "CyberSoar EASM")
 	}
 	r, _, _ := procNotifyIcon.Call(op, uintptr(unsafe.Pointer(&d)))
 	return r != 0
@@ -288,10 +288,10 @@ func (t *trayState) menu() {
 	if _, err := os.Stat(logFile); err != nil {
 		logFlags |= mfGrayed // nothing written to a file yet (the console is still open)
 	}
-	_, _, _ = procAppendMenu.Call(m, mfString, menuOpen, uintptr(unsafe.Pointer(utf16("Open EASM Agent"))))
+	_, _, _ = procAppendMenu.Call(m, mfString, menuOpen, uintptr(unsafe.Pointer(utf16("Open CyberSoar EASM"))))
 	_, _, _ = procAppendMenu.Call(m, logFlags, menuLog, uintptr(unsafe.Pointer(utf16("Open log file"))))
 	_, _, _ = procAppendMenu.Call(m, mfSeparator, 0, 0)
-	_, _, _ = procAppendMenu.Call(m, mfString, menuStop, uintptr(unsafe.Pointer(utf16("Stop EASM Agent"))))
+	_, _, _ = procAppendMenu.Call(m, mfString, menuStop, uintptr(unsafe.Pointer(utf16("Stop CyberSoar EASM"))))
 	_, _, _ = procSetDefaultItem.Call(m, menuOpen, 0)
 	var pt point
 	_, _, _ = procGetCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
@@ -308,8 +308,8 @@ func (t *trayState) menu() {
 		}
 	case menuStop:
 		r, _, _ := procMessageBox.Call(t.wnd,
-			uintptr(unsafe.Pointer(utf16("Stop EASM Agent?\n\nScans, alerts and the web interface stop until the agent is started again."))),
-			uintptr(unsafe.Pointer(utf16("EASM Agent"))), mbYesNo|mbIconQuestion|mbSetForegr)
+			uintptr(unsafe.Pointer(utf16("Stop CyberSoar EASM?\n\nScans, alerts and the web interface stop until the agent is started again."))),
+			uintptr(unsafe.Pointer(utf16("CyberSoar EASM"))), mbYesNo|mbIconQuestion|mbSetForegr)
 		if r == idYes {
 			t.log.Info("stop requested from the notification-area icon")
 			go t.opts.Stop()

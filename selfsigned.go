@@ -161,7 +161,7 @@ func (k *certKeeper) create() (*tls.Certificate, *x509.Certificate, error) {
 	now := time.Now()
 	tpl := &x509.Certificate{
 		SerialNumber:          serial,
-		Subject:               pkix.Name{CommonName: "EASM Agent", Organization: []string{"EASM Agent (self-signed)"}},
+		Subject:               pkix.Name{CommonName: "CyberSoar EASM", Organization: []string{"CyberSoar EASM (self-signed)"}},
 		NotBefore:             now.Add(-time.Hour), // tolerate small clock differences
 		NotAfter:              now.Add(selfSignedLife),
 		KeyUsage:              x509.KeyUsageDigitalSignature,
