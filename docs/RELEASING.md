@@ -1,4 +1,4 @@
-# Releasing EASM Agent
+# Releasing CyberSoar EASM
 
 Releases are built, signed and published by `.github/workflows/release.yml` when a
 version tag is pushed. Installed agents find the release with their daily update
@@ -47,7 +47,7 @@ key, and publish a release. Agents still on the old key need that release instal
 2. UAT first: tag the merge commit on `main` as a release candidate and push it:
 
    ```
-   git tag -a vX.Y.Z-rc.1 -m "EASM Agent X.Y.Z-rc.1"
+   git tag -a vX.Y.Z-rc.1 -m "CyberSoar EASM X.Y.Z-rc.1"
    git push origin vX.Y.Z-rc.1
    ```
 
@@ -59,7 +59,7 @@ key, and publish a release. Agents still on the old key need that release instal
 3. Production: once the RC passes UAT, tag the same commit as the release and push it:
 
    ```
-   git tag -a vX.Y.Z -m "EASM Agent X.Y.Z"
+   git tag -a vX.Y.Z -m "CyberSoar EASM X.Y.Z"
    git push origin vX.Y.Z
    ```
 

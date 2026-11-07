@@ -45,11 +45,11 @@ AVI uploads. It is about 110 MB, so it is not committed. The GIF (about 5 MB) is
 
 ## Title, description and tags for YouTube
 
-**Title:** EASM Agent: free, open-source external attack surface monitoring (1-minute tour)
+**Title:** CyberSoar EASM: free, open-source external attack surface monitoring (1-minute tour)
 
 **Description:**
 
-> EASM Agent finds what your organisation exposes on the internet (sub-domains, servers, open
+> CyberSoar EASM finds what your organisation exposes on the internet (sub-domains, servers, open
 > services, vulnerable software, take-over risks, weak email security, public storage and leaked keys)
 > and tells you when it changes. It is one signed program for Windows, Linux, Docker and Kubernetes
 > that runs on your own machine, with an encrypted database and nothing sent anywhere else.

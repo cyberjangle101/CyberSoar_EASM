@@ -1,6 +1,6 @@
 # Connecting an AI assistant (MCP)
 
-EASM Agent has a [Model Context Protocol](https://modelcontextprotocol.io) endpoint at `/mcp`. An assistant that speaks MCP (Claude Code, Claude Desktop, or another MCP client) can use it to answer questions such as *"what are our worst open findings on example.com?"*, *"what changed this week?"* or *"what do we know about 203.0.113.7?"*.
+CyberSoar EASM has a [Model Context Protocol](https://modelcontextprotocol.io) endpoint at `/mcp`. An assistant that speaks MCP (Claude Code, Claude Desktop, or another MCP client) can use it to answer questions such as *"what are our worst open findings on example.com?"*, *"what changed this week?"* or *"what do we know about 203.0.113.7?"*.
 
 ## What an assistant can do
 

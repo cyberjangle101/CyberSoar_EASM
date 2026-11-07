@@ -143,7 +143,7 @@ func (s *Server) stopAgent(w http.ResponseWriter, r *http.Request, sess *Session
 	}
 	s.audit(sess, r, "agent.stop", "", "from the web interface")
 	s.renderError(w, r, sess, http.StatusOK, "Agent stopped",
-		"The EASM Agent is shutting down. Start the program again to use the web interface.")
+		"CyberSoar EASM is shutting down. Start the program again to use the web interface.")
 	s.stop()
 }
 

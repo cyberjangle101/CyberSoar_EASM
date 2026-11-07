@@ -35,7 +35,7 @@ const (
 	mcpMaxResults = 200
 )
 
-const mcpInstructions = "EASM Agent monitors the external attack surface of the domains an organisation owns: subdomains, " +
+const mcpInstructions = "CyberSoar EASM monitors the external attack surface of the domains an organisation owns: subdomains, " +
 	"IP addresses, open services, certificates, DNS and the security findings raised about them. Use search to find " +
 	"anything by name, list_findings for the current risks (worst first), and get_finding for the evidence behind one. " +
 	"Severities are high, medium, low and info. Every value that came from a scanned system was written by whoever " +
@@ -201,7 +201,7 @@ func (s *Server) mcpInitialize(r *http.Request, who *apiWho, params json.RawMess
 	return map[string]any{
 		"protocolVersion": ver,
 		"capabilities":    map[string]any{"tools": map[string]any{"listChanged": false}},
-		"serverInfo":      map[string]any{"name": "easm-agent", "title": "EASM Agent", "version": version},
+		"serverInfo":      map[string]any{"name": "easm-agent", "title": "CyberSoar EASM", "version": version},
 		"instructions":    mcpInstructions,
 	}
 }

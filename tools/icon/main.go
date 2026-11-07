@@ -1,17 +1,17 @@
-// Command icon cuts the CyberSoar EASM logos out of the brand pack (docs/brand/logo-pack.png,
+// Command icon redraws the CyberSoar EASM logos from the brand pack (docs/brand/logo-pack.png,
 // the three logos on a dark background) and writes them where the program uses them:
 //
 //	rsrc_windows_amd64.syso  the app icon as the Windows icon resource linked into easm-agent.exe
 //	                         (Explorer, the taskbar and the notification-area icon)
 //	web/static/favicon.png   the app icon, as the browser-tab icon of the web interface
-//	web/static/logo.png      the app icon, large (README, sign-in and set-up pages)
+//	web/static/logo.png      the app icon, large (demo cards)
 //	web/static/wordmark.png  the wing and "CyberSoar EASM", for the sidebar of the web interface
-//	web/static/mark.png      the stacked "CS EASM" mark
+//	web/static/mark.png      the stacked "CS EASM" mark, for the sign-in and set-up pages
 //
-// The pack's background is removed with a colour-to-alpha step, so the logos sit cleanly on
-// the light and the dark theme alike. The app icon keeps its own black rounded tile. Copies of
-// the cut-outs are also written to docs/brand. Run from the repository root after the pack
-// changes:
+// The logos are redrawn at high resolution in their flat brand colours (render.go), with
+// transparent backgrounds, so they are sharp and sit cleanly on the light and the dark theme
+// alike. The app icon keeps its own black rounded tile. Large copies are also written to
+// docs/brand. Run from the repository root after the pack changes:
 //
 //	go run ./tools/icon
 package main
@@ -37,10 +37,17 @@ func main() {
 	}
 	bg := background(pack)
 
-	// The three logos sit between the pack's dashed dividers (rough areas; each is trimmed to its content).
-	icon := square(trim(appIcon(pack, image.Rect(50, 140, 345, 430), bg), 0.06), 0.02)
-	mark := trim(keyOut(pack, image.Rect(415, 200, 600, 370), bg), 0.06)
-	word := trim(keyOut(pack, image.Rect(632, 220, 990, 350), bg), 0.06)
+	// The three logos sit between the pack's dashed dividers (rough areas; each is trimmed to its
+	// content). Each is redrawn at 6 times the pack's resolution, then scaled down to each size.
+	const scale = 6
+	iconArea := image.Rect(50, 140, 345, 430)
+	icon := square(trim(render(pack, iconArea, bg, scale, findTile(pack, iconArea, bg)), 0.05), 0.02)
+	mark := trim(render(pack, image.Rect(415, 200, 600, 370), bg, scale, nil), 0.05)
+	word := trim(render(pack, image.Rect(632, 220, 990, 350), bg, scale, nil), 0.05)
+	height := func(img *image.NRGBA, h int) *image.NRGBA {
+		b := img.Bounds()
+		return resize(img, int(math.Round(float64(b.Dx())*float64(h)/float64(b.Dy()))), h)
+	}
 
 	sizes := []int{16, 20, 24, 32, 40, 48, 64, 256}
 	var frames [][]byte
@@ -48,14 +55,16 @@ func main() {
 		frames = append(frames, mustPNG(resize(icon, s, s)))
 	}
 	write("rsrc_windows_amd64.syso", iconObject(sizes, frames))
-	write("web/static/favicon.png", mustPNG(resize(icon, 32, 32)))
-	write("web/static/logo.png", mustPNG(resize(icon, 128, 128)))
-	write("web/static/wordmark.png", mustPNG(word))
-	write("web/static/mark.png", mustPNG(mark))
-	write("docs/brand/app-icon.png", mustPNG(resize(icon, 256, 256)))
-	write("docs/brand/wordmark.png", mustPNG(word))
-	write("docs/brand/mark.png", mustPNG(mark))
-	fmt.Printf("background %v; icon %dpx, mark %v, wordmark %v\n", bg, icon.Bounds().Dx(), mark.Bounds().Size(), word.Bounds().Size())
+	write("web/static/favicon.png", mustPNG(resize(icon, 64, 64)))
+	write("web/static/logo.png", mustPNG(resize(icon, 256, 256)))
+	// The web interface shows the wordmark 44 and the mark 94 pixels high: three and two times
+	// that keeps them sharp on high-DPI screens.
+	write("web/static/wordmark.png", mustPNG(height(word, 132)))
+	write("web/static/mark.png", mustPNG(height(mark, 188)))
+	write("docs/brand/app-icon.png", mustPNG(resize(icon, 1024, 1024)))
+	write("docs/brand/wordmark.png", mustPNG(height(word, 320)))
+	write("docs/brand/mark.png", mustPNG(height(mark, 400)))
+	fmt.Printf("background %v; redrawn icon %dpx, mark %v, wordmark %v\n", bg, icon.Bounds().Dx(), mark.Bounds().Size(), word.Bounds().Size())
 }
 
 func fail(err error) {
@@ -113,112 +122,11 @@ func median(v []float64) float64 {
 	return v[len(v)/2]
 }
 
-// The logo colours (crimson especially) are dark, so a pixel's opacity is judged by how far
-// its colour is from the background: noise in the lossy pack stays transparent, the logo's
-// own colours are solid, and only the antialiased edges in between are partly transparent.
-const keyLo, keyHi = 22.0, 70.0 // RGB distance from the background: transparent below, solid above
-
 func dist(a, b rgb) float64 {
 	return math.Sqrt((a.r-b.r)*(a.r-b.r) + (a.g-b.g)*(a.g-b.g) + (a.b-b.b)*(a.b-b.b))
 }
 
 func clamp8(f float64) uint8 { return uint8(math.Round(math.Max(0, math.Min(255, f)))) }
-
-// keyOut copies an area of the pack with its background made transparent. Edge pixels are
-// a blend of logo and dark background; they take the colour of the nearest solid pixel, so
-// they show no dark fringe on a light page.
-func keyOut(img image.Image, r image.Rectangle, bg rgb) *image.NRGBA {
-	w, h := r.Dx(), r.Dy()
-	alpha := make([]float64, w*h)
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
-			d := dist(at(img, r.Min.X+x, r.Min.Y+y), bg)
-			t := math.Max(0, math.Min(1, (d-keyLo)/(keyHi-keyLo)))
-			alpha[y*w+x] = t * t * (3 - 2*t) // smoothstep
-		}
-	}
-	out := image.NewNRGBA(image.Rect(0, 0, w, h))
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
-			a := alpha[y*w+x]
-			if a == 0 {
-				continue
-			}
-			src := at(img, r.Min.X+x, r.Min.Y+y)
-			if a < 1 { // borrow the colour of the most opaque pixel nearby
-				best := -1.0
-				for dy := -2; dy <= 2; dy++ {
-					for dx := -2; dx <= 2; dx++ {
-						xx, yy := x+dx, y+dy
-						if xx < 0 || yy < 0 || xx >= w || yy >= h {
-							continue
-						}
-						if aa := alpha[yy*w+xx]; aa > best {
-							best, src = aa, at(img, r.Min.X+xx, r.Min.Y+yy)
-						}
-					}
-				}
-			}
-			out.SetNRGBA(x, y, color.NRGBA{clamp8(src.r), clamp8(src.g), clamp8(src.b), clamp8(a * 255)})
-		}
-	}
-	return out
-}
-
-// appIcon keys out the area but keeps the black rounded tile behind the wing opaque. The tile
-// is the block of pixels clearly darker than the background; its corners are rounded again
-// here with smooth edges.
-func appIcon(img image.Image, r image.Rectangle, bg rgb) *image.NRGBA {
-	out := keyOut(img, r, bg)
-	lum := func(c rgb) float64 { return 0.2126*c.r + 0.7152*c.g + 0.0722*c.b }
-	dark := lum(bg) * 0.55
-	// The tile's edges: the rows and columns where most pixels are that dark.
-	rows, cols := map[int]int{}, map[int]int{}
-	for y := r.Min.Y; y < r.Max.Y; y++ {
-		for x := r.Min.X; x < r.Max.X; x++ {
-			if lum(at(img, x, y)) < dark {
-				rows[y]++
-				cols[x]++
-			}
-		}
-	}
-	edge := func(m map[int]int, lo, hi int) (int, int) {
-		best := 0
-		for _, n := range m {
-			best = max(best, n)
-		}
-		a, b := hi, lo
-		for i := lo; i < hi; i++ {
-			if m[i] > best/2 {
-				a, b = min(a, i), max(b, i)
-			}
-		}
-		return a, b
-	}
-	x0, x1 := edge(cols, r.Min.X, r.Max.X)
-	y0, y1 := edge(rows, r.Min.Y, r.Max.Y)
-	cx, cy := float64(x0+x1+1)/2, float64(y0+y1+1)/2
-	hw, hh := float64(x1-x0+1)/2, float64(y1-y0+1)/2
-	rad := 0.19 * math.Min(hw, hh) * 2
-	for y := r.Min.Y; y < r.Max.Y; y++ {
-		for x := r.Min.X; x < r.Max.X; x++ {
-			d := roundedBox(float64(x)+0.5-cx, float64(y)+0.5-cy, hw, hh, rad)
-			cover := math.Max(0, math.Min(1, 0.5-d)) // antialiased edge
-			if cover == 0 {
-				continue
-			}
-			c := at(img, x, y)
-			k := out.NRGBAAt(x-r.Min.X, y-r.Min.Y)
-			// the tile is opaque: blend the keyed pixel with the original by coverage
-			a := cover + float64(k.A)/255*(1-cover)
-			mix := func(orig float64, keyed uint8) uint8 {
-				return clamp8((orig*cover + float64(keyed)*float64(k.A)/255*(1-cover)) / a)
-			}
-			out.SetNRGBA(x-r.Min.X, y-r.Min.Y, color.NRGBA{mix(c.r, k.R), mix(c.g, k.G), mix(c.b, k.B), clamp8(a * 255)})
-		}
-	}
-	return out
-}
 
 // roundedBox is the signed distance from (x, y) to a box of half-size hw×hh with corner radius r (negative inside).
 func roundedBox(x, y, hw, hh, r float64) float64 {

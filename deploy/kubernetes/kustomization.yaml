@@ -1,4 +1,4 @@
-# EASM Agent on Kubernetes (GKE, AKS, EKS or any conformant cluster). See docs/KUBERNETES.md.
+# CyberSoar EASM on Kubernetes (GKE, AKS, EKS or any conformant cluster). See docs/KUBERNETES.md.
 #
 #   kubectl create namespace easm
 #   kubectl -n easm create secret generic easm-key-passphrase --from-file=passphrase=./passphrase.txt

@@ -1,4 +1,4 @@
-# EASM Agent container image.
+# CyberSoar EASM container image.
 #
 # Built by the Release workflow from the signed release binaries in dist/ (verified against
 # SHA256SUMS.sig before the build), so the image holds exactly the program users download:
@@ -14,7 +14,7 @@ ARG TARGETARCH
 ARG VERSION=dev
 ARG REVISION=unknown
 
-LABEL org.opencontainers.image.title="EASM Agent" \
+LABEL org.opencontainers.image.title="CyberSoar EASM" \
       org.opencontainers.image.description="External attack surface monitoring agent" \
       org.opencontainers.image.source="https://github.com/cyberjangle101/cybersour-attack-surface-scanner" \
       org.opencontainers.image.licenses="MIT" \

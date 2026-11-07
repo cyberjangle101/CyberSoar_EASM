@@ -76,8 +76,8 @@ func totpVerify(secret, typed string, now time.Time, lastUsed int64) (step int64
 
 // totpURI is what the QR code carries.
 func totpURI(account, secret string) string {
-	return "otpauth://totp/" + url.PathEscape("EASM Agent:"+account) + "?" + url.Values{
-		"secret": {secret}, "issuer": {"EASM Agent"}, "algorithm": {"SHA1"},
+	return "otpauth://totp/" + url.PathEscape("CyberSoar EASM:"+account) + "?" + url.Values{
+		"secret": {secret}, "issuer": {"CyberSoar EASM"}, "algorithm": {"SHA1"},
 		"digits": {fmt.Sprint(totpDigits)}, "period": {fmt.Sprint(totpPeriod)}}.Encode()
 }
 

@@ -77,7 +77,7 @@ func TestReportHeaderNamesOwnerAndPreparer(t *testing.T) {
 	st, _ := e.store.LoadSettings()
 	_, plain, html := renderDigest(full, st.Runtime(""))
 	for _, part := range []string{plain, html} {
-		if !strings.Contains(part, "Acme Widgets Ltd") || !strings.Contains(part, "prepared by EASM Agent (scheduled digest)") {
+		if !strings.Contains(part, "Acme Widgets Ltd") || !strings.Contains(part, "prepared by CyberSoar EASM (scheduled digest)") {
 			t.Errorf("digest header lacks organisation or preparer:\n%.400s", part)
 		}
 	}

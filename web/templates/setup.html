@@ -1,6 +1,6 @@
 {{define "content"}}
 <div class="card narrow">
-  <h1>Welcome to EASM Agent</h1>
+  <h1>Welcome to CyberSoar EASM</h1>
   <p class="muted">Create the first administrator account. After this you can add the domains to monitor, and everything else (scanning, alerting, reporting) runs automatically.</p>
   {{if .Error}}<div class="flash bad">{{.Error}}</div>{{end}}
   <form method="post" action="/setup" autocomplete="off"> {{/* nosemgrep: python.django.security.django-no-csrf-token.django-no-csrf-token -- Go template: the csrf hidden field is checked by s.auth or checkPreCSRF */}}

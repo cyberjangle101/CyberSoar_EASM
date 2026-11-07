@@ -75,7 +75,7 @@ func (r Report) MarshalJSON() ([]byte, error) {
 }
 
 // preparedByAgent is the author of reports nobody asked for in person (scheduled digests).
-const preparedByAgent = "EASM Agent (scheduled digest)"
+const preparedByAgent = "CyberSoar EASM (scheduled digest)"
 
 // PreparedBy names the person a report was generated for, as shown in its header.
 func PreparedBy(sess *Session) string {

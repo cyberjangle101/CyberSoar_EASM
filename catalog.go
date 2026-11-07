@@ -498,7 +498,7 @@ var findingCatalog = map[string]FindingInfo{
 func describeFinding(f Finding) FindingInfo {
 	info, ok := findingCatalog[ruleKind(f.Kind, f.Key)]
 	if !ok {
-		info = FindingInfo{Title: f.Kind, Source: "EASM agent", Risk: "See the detail column.", Solution: "Investigate the detail and correct the underlying configuration."}
+		info = FindingInfo{Title: f.Kind, Source: "CyberSoar EASM", Risk: "See the detail column.", Solution: "Investigate the detail and correct the underlying configuration."}
 	}
 	if f.Source != "" {
 		info.Source = f.Source

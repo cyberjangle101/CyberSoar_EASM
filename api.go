@@ -378,7 +378,7 @@ func buildSARIF(fs []apiFinding) map[string]any {
 		"$schema": "https://json.schemastore.org/sarif-2.1.0.json",
 		"version": "2.1.0",
 		"runs": []map[string]any{{
-			"tool":    map[string]any{"driver": map[string]any{"name": "EASM Agent", "version": version, "rules": rules}},
+			"tool":    map[string]any{"driver": map[string]any{"name": "CyberSoar EASM", "version": version, "rules": rules}},
 			"results": results,
 		}},
 	}
@@ -415,7 +415,7 @@ func buildSTIX(fs []apiFinding) map[string]any {
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	identity := "identity--" + uuid5("identity:easm-agent")
 	objs := []map[string]any{{"type": "identity", "spec_version": "2.1", "id": identity, "created": "2026-01-01T00:00:00.000Z", "modified": "2026-01-01T00:00:00.000Z",
-		"name": "EASM Agent " + version, "identity_class": "system"}}
+		"name": "CyberSoar EASM " + version, "identity_class": "system"}}
 	haveHost := map[string]bool{}
 	for _, f := range fs {
 		infra := "infrastructure--" + uuid5("infra:"+f.Host)

@@ -382,7 +382,7 @@ func (cs *ChannelSender) Send(ctx context.Context, c *Channel, events []Event) e
 // SendTest delivers a clearly marked sample event.
 func (cs *ChannelSender) SendTest(ctx context.Context, c *Channel) error {
 	e := Event{ID: 0, TS: nowUTC(), Root: "example.com", Kind: "test", Severity: "info", Host: "test.example.com",
-		Detail: "This is a test message from the EASM agent. Nothing is wrong."}
+		Detail: "This is a test message from CyberSoar EASM. Nothing is wrong."}
 	if c.Kind == chJira {
 		return cs.jiraCreate(ctx, c, e, "easm-test-"+nowUTC())
 	}
@@ -590,6 +590,7 @@ func syslogLine(e Event, format, hostname string) string {
 		msg = string(b)
 	} else {
 		ts, _ := time.Parse(time.RFC3339, e.TS)
+		// The CEF vendor stays "EASM Agent" after the rename to CyberSoar EASM: SIEM parsing and alert rules match on it.
 		msg = fmt.Sprintf("CEF:0|EASM Agent|easm-agent|%s|%s|%s|%d|rt=%d dvchost=%s cs1Label=domain cs1=%s cs2Label=host cs2=%s msg=%s",
 			cefHeader(version), cefHeader(e.Kind), cefHeader(clip(e.Kind+": "+e.Detail, 120)), cefSev[e.Severity],
 			ts.UnixMilli(), cefExt(hostname), cefExt(e.Root), cefExt(e.Host), cefExt(clip(e.Detail, 900)))
@@ -722,7 +723,7 @@ func (cs *ChannelSender) sendJira(ctx context.Context, c *Channel, events []Even
 }
 
 func (cs *ChannelSender) jiraCreate(ctx context.Context, c *Channel, e Event, key string) error {
-	desc := fmt.Sprintf("%s\n\nDomain: %s\nHost: %s\nSeverity: %s\nType: %s\nFound by the EASM agent at %s.", e.Detail, e.Root, e.Host, e.Severity, e.Kind, e.TS)
+	desc := fmt.Sprintf("%s\n\nDomain: %s\nHost: %s\nSeverity: %s\nType: %s\nFound by CyberSoar EASM at %s.", e.Detail, e.Root, e.Host, e.Severity, e.Kind, e.TS)
 	if l := hostLink(cs.base(), e.Host); l != "" {
 		desc += "\n" + l
 	}

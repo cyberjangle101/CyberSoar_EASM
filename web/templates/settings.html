@@ -77,7 +77,7 @@
       <label>Username <input name="smtp_username" value="{{.S.SMTPUsername}}" autocomplete="off"></label>
       <label>Password <input type="password" name="smtp_password" autocomplete="new-password" placeholder="{{if .HasPassword}}(saved; leave blank to keep){{else}}(not set){{end}}"><span class="hint">Stored encrypted. Tick below to remove it.</span></label>
       <label class="check"><input type="checkbox" name="smtp_password_clear"> Remove the saved password</label>
-      <label>From address <input name="smtp_from" value="{{.S.SMTPFrom}}" placeholder="EASM Agent &lt;alerts@example.com&gt;"></label>
+      <label>From address <input name="smtp_from" value="{{.S.SMTPFrom}}" placeholder="CyberSoar EASM &lt;alerts@example.com&gt;"></label>
       <label>Subject prefix <input name="smtp_subject_prefix" value="{{.S.SMTPSubjectPrefix}}"></label>
       <label class="wide">Recipients (one per line) <textarea name="smtp_to" rows="3" placeholder="secops@example.com">{{.Recipients}}</textarea></label>
       <label class="check wide"><input type="checkbox" name="smtp_insecure_skip_verify" {{if .S.SMTPInsecureSkipVerify}}checked{{end}}> Do not verify the server's TLS certificate <span class="hint">Only for internal relays with self-signed certificates.</span></label>
