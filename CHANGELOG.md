@@ -1,15 +1,17 @@
 # Changelog
 
-What changed in each release of EASM Agent, newest first. Releases and their signed downloads are on the [Releases page](https://github.com/cyberjangle101/cybersour-attack-surface-scanner/releases).
+What changed in each release of CyberSoar EASM (called EASM Agent before 1.9.19), newest first. Releases and their signed downloads are on the [Releases page](https://github.com/cyberjangle101/cybersour-attack-surface-scanner/releases).
 
 ## 1.9
 
-**Unreleased (now CyberSoar EASM: new name and logo, MCP settings, every rule tested end to end):**
+**v1.9.19 (CyberSoar EASM: new name and logo, MCP settings, every rule tested end to end):**
 
 * **The product is now called CyberSoar EASM.** Page titles, the sign-in and set-up pages, the notification-area icon and its menu, reports, emails, the authenticator entry for new two-factor set-ups, exports (SARIF, STIX) and the documentation use the new name. What stays the same, so nothing breaks on upgrade: the program file (`easm-agent.exe`), the Windows service ID, the data and program folders (`%LocalAppData%\EASM Agent`, `%ProgramData%\EASM Agent`, `%ProgramFiles%\EASM Agent`), and the vendor field of syslog CEF messages (SIEM rules match on it).
 * **New logo.** The CyberSoar EASM logo pack replaces the radar icon: the wing and name in the sidebar, the stacked "CS EASM" mark on the sign-in and set-up pages, and the app icon for the program (Explorer, the taskbar and the notification area) and the browser tab. `go run ./tools/icon` redraws the logos from the pack in `docs/brand` at high resolution, in flat brand colours with transparent backgrounds, so they are sharp on high-DPI screens and suit the light and the dark theme.
 * **AI assistants (MCP) in Settings.** A new Settings section explains the `/mcp` endpoint: this agent's own address, ready-to-paste set-up for Claude Code and Claude Desktop, the tools an assistant gets and which token role each needs, what to know before connecting one, and the latest connections. A switch turns MCP off (every request to `/mcp` is then refused, whatever the token; the REST API is not affected). It is on by default, as before; an assistant still needs an API token.
 * **Every rule is tested end to end.** The test suite now fails if any of the 77 rules is never raised by a scan of test data. New tests feed scans the SPF, DMARC and DKIM records, private address, managed-database name and weak TLS certificate (1024-bit RSA key, SHA-1 signature) behind the 14 rules that were only unit-tested before.
+* **SQLite driver updated** (go-sqlite3 0.35.6 to 0.36.0).
+* **Kubernetes manifests** pin the 1.9.18 image, and move to 1.9.19 once it is published.
 
 **v1.9.18 (one page per domain, accessible light mode, public storage and API checks, update banner):**
 
@@ -23,7 +25,8 @@ What changed in each release of EASM Agent, newest first. Releases and their sig
 * **Possible vulnerabilities (CVEs) can now be confirmed automatically.** CVEs come from Shodan data, which guesses them from the software version it last saw, so on their own they are *unconfirmed*: listed, but not counted or alerted. With active checks on, a CVE finding is now trusted when the agent's own web check sees the server announce the same product at the same version (for example `Apache/2.4.49`), and it goes back to unconfirmed when the server is upgraded. The dashboard now says how many findings are unconfirmed and why, with a link to review them.
 * **Fixed: the window of an agent restarted by an update did not close.** After *Back up and install* the new version opened a console window that stayed on screen. The restart now opens no window at all unless the key passphrase has to be typed, and when it does, the window closes as intended.
 * **The logo** (the radar sweep from the program icon) now appears in the sidebar and on the sign-in pages instead of the letter "E".
-* **README tour and screenshots**, made from the test lab's made-up company. The tools that make them, and a full-length video for YouTube, are described in [docs/DEMO.md](docs/DEMO.md).* **Fixed: the Events page said "sent" for every alert, even with email not set up.** It now says what really happened: "sent" by email, "queued", "not sent" (email not set up, so the alert went to the log), or "not alerted" (a kind of change that is only recorded). Events recorded before this version say "not recorded", because that was not kept.
+* **README tour and screenshots**, made from the test lab's made-up company. The tools that make them, and a full-length video for YouTube, are described in [docs/DEMO.md](docs/DEMO.md).
+* **Fixed: the Events page said "sent" for every alert, even with email not set up.** It now says what really happened: "sent" by email, "queued", "not sent" (email not set up, so the alert went to the log), or "not alerted" (a kind of change that is only recorded). Events recorded before this version say "not recorded", because that was not kept.
 * **Fixed:** network checks sent a query string as part of the path, so the Elasticsearch index count was always 0.
 * **Kubernetes manifests** pin the 1.9.17 image, and move to 1.9.18 once it is published.
 * **Scheduling checked:** a new test runs the real scheduler loop and confirms that each domain is scanned on its own when its interval passes, that one not yet due is left alone, and that a paused one is never scanned.
