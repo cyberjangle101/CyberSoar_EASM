@@ -22,7 +22,7 @@ The agent ships as a container image, `ghcr.io/cyberjangle101/easm-agent:<versio
 - **Provenance:** every image carries **SLSA build provenance**. Check it before you deploy:
 
   ```bash
-  gh attestation verify oci://ghcr.io/cyberjangle101/easm-agent:1.9.17 --repo cyberjangle101/cybersour-attack-surface-scanner
+  gh attestation verify oci://ghcr.io/cyberjangle101/easm-agent:1.9.18 --repo cyberjangle101/cybersour-attack-surface-scanner
   ```
 
 - **Pin the version:** `deploy/kubernetes/kustomization.yaml` pins a release by its digest, so the image can't change under you. There's no `latest` tag on purpose.
