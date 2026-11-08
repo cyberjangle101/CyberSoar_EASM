@@ -4,7 +4,7 @@
 
 A lightweight, single-binary agent for continuous **External Attack Surface Management (EASM)**. It runs as a persistent background service on Windows or Linux, watches the internet-facing footprint of the organisations you tell it about, and emails you only when something **changes**.
 
-> **Status:** v1.9.19. What changed in each release is in [CHANGELOG.md](CHANGELOG.md). Every check the agent runs is listed in [docs/RULES.md](docs/RULES.md).
+> **Status:** v1.9.20. What changed in each release is in [CHANGELOG.md](CHANGELOG.md). Every check the agent runs is listed in [docs/RULES.md](docs/RULES.md).
 
 ![A one-minute tour of CyberSoar EASM: the dashboard, findings with their risk and fix, the evidence behind a finding, a domain's page and the report, using a made-up company](docs/images/demo.gif)
 

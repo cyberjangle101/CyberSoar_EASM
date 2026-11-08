@@ -44,6 +44,9 @@ key, and publish a release. Agents still on the old key need that release instal
 
 1. On a `feat/vX.Y.Z` or `fix/...` branch: update the version in the README's "Status" line,
    add the release's entry to `CHANGELOG.md`, pass the full gate in `CLAUDE.md`, and merge the PR.
+   To catch problems before a tag exists, run *Pre-release UAT* from the Actions tab on `main` (or push a
+   `test/sit-uat-*` branch): the same Windows, Windows Server, Linux, Docker and Kubernetes UAT as below,
+   on a build of that commit, with nothing signed or published.
 2. UAT first: tag the merge commit on `main` as a release candidate and push it:
 
    ```
