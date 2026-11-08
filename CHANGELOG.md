@@ -4,8 +4,9 @@ What changed in each release of CyberSoar EASM (called EASM Agent before 1.9.19)
 
 ## 1.9
 
-**Unreleased (AI assistant set-up that works with any MCP client):**
+**Unreleased (AI assistant set-up that works with any MCP client, network requirements):**
 
+* **Network requirements page.** [docs/NETWORK.md](docs/NETWORK.md) lists every connection the agent accepts or opens (the web/API/MCP port, DNS, each intelligence source and feed, the ports active checks connect to, SMTP, alert channels, Active Directory and updates) with its protocol, port, default and the setting that controls it, and which traffic can go through an HTTP(S) proxy. The README, KUBERNETES.md and MCP.md link to it.
 * **Fixed: the Claude Desktop snippet did not connect.** It passed the token as `${AUTH_HEADER}`, which the `mcp-remote` bridge sends as it is, so the agent refused it and the bridge failed with *"Dynamic Client Registration rejected (HTTP 404)"*. The snippet now writes the header out in full and uses `--transport http-only`.
 * **Any assistant, any model.** Settings → AI assistants and [docs/MCP.md](docs/MCP.md) now show the plain endpoint and header, a configuration file for assistants that connect to remote MCP servers (Cursor, VS Code, LM Studio, Claude Code), and the bridge for those that only start local servers, plus a Windows note for `npx`.
 * **Self-signed agents:** administrators can download the agent's certificate (never its key) from Settings, and the steps explain `NODE_EXTRA_CA_CERTS`, since Node.js assistants ignore the operating system's trusted store.
