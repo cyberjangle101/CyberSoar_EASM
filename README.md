@@ -61,7 +61,7 @@ finds, such as an exposed service or a weak email policy, is emailed from that f
 After that you are emailed only about new subdomains, new IP/DNS records, new certificates and
 new findings.
 
-To run it on a server for several people, see *Workstation or server* below. For Docker and Kubernetes (GKE, AKS, EKS), see [docs/KUBERNETES.md](docs/KUBERNETES.md).
+To run it on a server for several people, see *Workstation or server* below. For Docker and Kubernetes (GKE, AKS, EKS), see [docs/KUBERNETES.md](docs/KUBERNETES.md). The ports and hosts to allow through a firewall or proxy are in [docs/NETWORK.md](docs/NETWORK.md).
 
 ## What it does
 
@@ -195,6 +195,8 @@ By default the web interface listens on `127.0.0.1:8080` (this computer only). C
 * Sessions are held in memory, so everyone is signed out when the agent restarts.
 * Only scan domains you own or are authorised to assess. Passive sources are queried for the domain name; the agent
   sends DNS queries for discovered hostnames to the public resolvers.
+* Every inbound and outbound connection, with its port, host and the setting that controls it, is listed in
+  [docs/NETWORK.md](docs/NETWORK.md), for firewall and proxy rules.
 
 ## Development
 

@@ -142,6 +142,8 @@ Scans leave from the cluster's NAT address, so give the agent a **dedicated stat
 
 The NetworkPolicy allows internet egress but blocks the cluster's private ranges and the cloud metadata server. The agent also refuses to probe non-public addresses itself.
 
+To narrow egress further, or to send it through a proxy, [NETWORK.md](NETWORK.md) lists every host and port the agent connects to and which traffic cannot use a proxy.
+
 ## Updating
 
 1. Wait for a release (the agent's System health page announces it).
