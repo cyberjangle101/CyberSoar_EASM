@@ -4,6 +4,12 @@ What changed in each release of CyberSoar EASM (called EASM Agent before 1.9.19)
 
 ## 1.9
 
+**Unreleased (AI assistant set-up that works with any MCP client):**
+
+* **Fixed: the Claude Desktop snippet did not connect.** It passed the token as `${AUTH_HEADER}`, which the `mcp-remote` bridge sends as it is, so the agent refused it and the bridge failed with *"Dynamic Client Registration rejected (HTTP 404)"*. The snippet now writes the header out in full and uses `--transport http-only`.
+* **Any assistant, any model.** Settings → AI assistants and [docs/MCP.md](docs/MCP.md) now show the plain endpoint and header, a configuration file for assistants that connect to remote MCP servers (Cursor, VS Code, LM Studio, Claude Code), and the bridge for those that only start local servers, plus a Windows note for `npx`.
+* **Self-signed agents:** administrators can download the agent's certificate (never its key) from Settings, and the steps explain `NODE_EXTRA_CA_CERTS`, since Node.js assistants ignore the operating system's trusted store.
+
 **v1.9.19 (CyberSoar EASM: new name and logo, MCP settings, every rule tested end to end):**
 
 * **The product is now called CyberSoar EASM.** Page titles, the sign-in and set-up pages, the notification-area icon and its menu, reports, emails, the authenticator entry for new two-factor set-ups, exports (SARIF, STIX) and the documentation use the new name. What stays the same, so nothing breaks on upgrade: the program file (`easm-agent.exe`), the Windows service ID, the data and program folders (`%LocalAppData%\EASM Agent`, `%ProgramData%\EASM Agent`, `%ProgramFiles%\EASM Agent`), and the vendor field of syslog CEF messages (SIEM rules match on it).

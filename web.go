@@ -283,6 +283,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /settings/backup/download", s.auth(permAdmin, s.backupDownload))
 	mux.HandleFunc("POST /settings/certificate", s.auth(permAdmin, s.certUpload))
 	mux.HandleFunc("POST /settings/certificate/remove", s.auth(permAdmin, s.certRemove))
+	mux.HandleFunc("GET /settings/certificate.crt", s.auth(permAdmin, s.certDownload))
 	mux.HandleFunc("POST /settings/test-email", s.auth(permAdmin, s.settingsTestEmail))
 	mux.HandleFunc("POST /settings/digest-now", s.auth(permAdmin, s.settingsDigestNow))
 

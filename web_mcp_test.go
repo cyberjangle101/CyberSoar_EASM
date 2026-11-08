@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"crypto/x509"
+	"encoding/pem"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -15,10 +18,15 @@ func TestSettingsMCPSection(t *testing.T) {
 
 	code, body, _ := admin.get("/settings")
 	host := strings.TrimPrefix(strings.TrimPrefix(e.srv.URL, "https://"), "http://")
-	for _, want := range []string{`id="mcp"`, `name="mcp_enabled" checked`, host + `/mcp`, "claude mcp add --transport http easm", "mcp-remote", "request_scan", "No assistant has connected yet"} {
+	for _, want := range []string{`id="mcp"`, `name="mcp_enabled" checked`, host + `/mcp`, "claude mcp add --transport http easm", "mcp-remote", "request_scan", "No assistant has connected yet",
+		`id="mcp-remote"`, "&#34;headers&#34;", "http-only", "Authorization:Bearer &lt;your token&gt;"} {
 		if code != 200 || !strings.Contains(body, want) {
 			t.Errorf("settings page is missing %q", want)
 		}
+	}
+	// mcp-remote sends a ${VAR} in --header as it is, so the agent would refuse it
+	if strings.Contains(body, "${") {
+		t.Error("a snippet relies on ${...} expansion")
 	}
 
 	// the connection appears under Recent connections
@@ -45,6 +53,50 @@ func TestSettingsMCPSection(t *testing.T) {
 	}
 	if _, body, _ = admin.get("/settings"); strings.Contains(body, `name="mcp_enabled" checked`) {
 		t.Error("the box should show MCP as off")
+	}
+}
+
+// A self-signed agent offers its certificate (never the key) for the assistant's computer to
+// trust, and the bridge snippet gains the NODE_EXTRA_CA_CERTS setting for it.
+func TestMCPSelfSignedCertificate(t *testing.T) {
+	e := newWebEnv(t)
+	admin := e.signedIn("boss", RoleAdmin)
+	if c, _, _ := admin.get("/settings/certificate.crt"); c != 404 {
+		t.Errorf("no certificate keeper: %d, want 404", c)
+	}
+
+	k, err := newCertKeeper(t.TempDir(), "127.0.0.1:8080", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.web.certs = k
+	code, body, _ := admin.get("/settings")
+	for _, want := range []string{`href="/settings/certificate.crt"`, "NODE_EXTRA_CA_CERTS", "&lt;path to easm-agent.crt&gt;"} {
+		if code != 200 || !strings.Contains(body, want) {
+			t.Errorf("settings page is missing %q", want)
+		}
+	}
+
+	code, body, _ = admin.get("/settings/certificate.crt")
+	blk, rest := pem.Decode([]byte(body))
+	if code != 200 || blk == nil || blk.Type != "CERTIFICATE" || len(strings.TrimSpace(string(rest))) != 0 {
+		t.Fatalf("download: %d %q", code, body)
+	}
+	cert, err := x509.ParseCertificate(blk.Bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	served, _ := k.Get(nil)
+	if !bytes.Equal(cert.Raw, served.Certificate[0]) {
+		t.Error("the download is not the certificate the server presents")
+	}
+	if strings.Contains(body, "PRIVATE KEY") {
+		t.Error("the download contains a private key")
+	}
+
+	viewer := e.signedIn("val", RoleViewer)
+	if c, _, _ := viewer.get("/settings/certificate.crt"); c == 200 {
+		t.Error("a viewer can download the certificate from the admin-only settings")
 	}
 }
 

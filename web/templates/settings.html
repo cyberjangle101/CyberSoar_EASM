@@ -216,22 +216,24 @@
   {{with .MCP}}
   <section class="card" id="mcp">
     <h2>AI assistants (MCP) {{if .On}}<span class="badge good">on</span>{{else}}<span class="badge">off</span>{{end}}</h2>
-    <p class="muted">Connect an assistant that speaks the Model Context Protocol, such as Claude Code or Claude Desktop, so people can ask it things like <em>&ldquo;what are our worst open findings?&rdquo;</em> or <em>&ldquo;what changed this week?&rdquo;</em>. The assistant signs in with an API token and gets that token&rsquo;s role at most. It can read domains, findings, assets and events. With an Analyst token it can also queue a rescan of a domain that is already monitored. It can never add a domain, change a finding, or change settings or users.</p>
+    <p class="muted">Connect an assistant that speaks the Model Context Protocol (MCP), an open standard that works with any AI model the assistant uses (Claude, GPT, Gemini, or a model you run yourself), so people can ask it things like <em>&ldquo;what are our worst open findings?&rdquo;</em> or <em>&ldquo;what changed this week?&rdquo;</em>. The assistant signs in with an API token and gets that token&rsquo;s role at most. It can read domains, findings, assets and events. With an Analyst token it can also queue a rescan of a domain that is already monitored. It can never add a domain, change a finding, or change settings or users.</p>
     <div class="grid">
       <label class="check wide"><input type="checkbox" name="mcp_enabled" {{if .On}}checked{{end}}> Allow AI assistants to connect <span class="hint">When off, every request to <span class="mono">/mcp</span> is refused, whatever the token. The REST API is not affected.</span></label>
     </div>
 
     <h3>Connect an assistant</h3>
     <ol class="steps">
-      <li>Create an API token under <a href="/account#tokens">your account → API tokens</a>. Name it after the assistant (for example <span class="mono">claude</span>), choose <strong>Viewer</strong> unless it should be able to start rescans, and set an expiry date.</li>
-      <li>Add the server to the assistant, replacing <span class="mono">&lt;your token&gt;</span> with the token.</li>
+      <li>Create an API token under <a href="/account#tokens">your account → API tokens</a>. Name it after the assistant (for example <span class="mono">cursor</span> or <span class="mono">claude</span>), choose <strong>Viewer</strong> unless it should be able to start rescans, and set an expiry date.</li>
+      <li>Add the server to the assistant, replacing <span class="mono">&lt;your token&gt;</span> with the token. Use the first form your assistant supports.</li>
     </ol>
-    <p class="small"><strong>Endpoint</strong> <code class="mono" id="mcp-endpoint">{{.Endpoint}}</code> <button class="btn small" type="button" data-copy="mcp-endpoint">Copy</button></p>
-    <p class="small"><strong>Claude Code</strong>, in a terminal: <button class="btn small" type="button" data-copy="mcp-claude-code">Copy</button></p>
+    <p class="small"><strong>Endpoint</strong> <code class="mono" id="mcp-endpoint">{{.Endpoint}}</code> <button class="btn small" type="button" data-copy="mcp-endpoint">Copy</button> with the header <span class="mono">Authorization: Bearer &lt;your token&gt;</span>. That is all an assistant with a form for remote MCP servers needs.</p>
+    <p class="small"><strong>Assistants that connect to remote MCP servers</strong> (for example Cursor, VS Code, LM Studio, Claude Code), in the assistant&rsquo;s MCP configuration file. Some name the keys differently; VS Code uses <span class="mono">"servers"</span> and <span class="mono">"type": "http"</span>: <button class="btn small" type="button" data-copy="mcp-remote">Copy</button></p>
+    <pre class="snippet" id="mcp-remote">{{.Remote}}</pre>
+    <p class="small">Claude Code can also add it from a terminal: <button class="btn small" type="button" data-copy="mcp-claude-code">Copy</button></p>
     <pre class="snippet" id="mcp-claude-code">{{.ClaudeCode}}</pre>
-    <p class="small"><strong>Claude Desktop</strong>, and other clients that only start local servers, in the client&rsquo;s configuration file (it uses the <span class="mono">mcp-remote</span> bridge, which needs Node.js): <button class="btn small" type="button" data-copy="mcp-desktop">Copy</button></p>
-    <pre class="snippet" id="mcp-desktop">{{.Desktop}}</pre>
-    {{if .SelfSigned}}<p class="flash warn small">This agent uses its own self-signed certificate, which assistants refuse until they trust it. <a href="#certificate">Install a certificate</a> from your certificate authority, or add this one to the trusted store of the computer that runs the assistant (for Node-based clients, point <span class="mono">NODE_EXTRA_CA_CERTS</span> at it).</p>{{end}}
+    <p class="small"><strong>Assistants that only start local servers</strong> (for example Claude Desktop&rsquo;s configuration file), through the <span class="mono">mcp-remote</span> bridge, which needs Node.js. On Windows, if the assistant cannot start <span class="mono">npx</span>, use <span class="mono">"command": "cmd"</span> and put <span class="mono">"/c", "npx"</span> at the start of <span class="mono">"args"</span>: <button class="btn small" type="button" data-copy="mcp-bridge">Copy</button></p>
+    <pre class="snippet" id="mcp-bridge">{{.Bridge}}</pre>
+    {{if .SelfSigned}}<p class="flash warn small">This agent uses its own self-signed certificate, which assistants refuse until they trust it. Either <a href="#certificate">install a certificate</a> from your certificate authority, or <a href="/settings/certificate.crt">download this agent&rsquo;s certificate</a> to the computer that runs the assistant. Most assistants are Node.js programs, which ignore the operating system&rsquo;s trusted store: set <span class="mono">NODE_EXTRA_CA_CERTS</span> to the saved file&rsquo;s path, in the bridge configuration above or in the environment the assistant starts in. Other assistants need it added to the computer&rsquo;s trusted store.</p>{{end}}
 
     <h3>Tools the assistant gets</h3>
     <div class="scroll"><table><thead><tr><th>Tool</th><th>What it does</th><th>Lowest token role</th></tr></thead>
@@ -241,7 +243,7 @@
     <ul class="small">
       <li><strong>Your findings go to the AI provider.</strong> Whatever the assistant reads (host names, addresses, findings) is sent to the company that runs the model, under its terms.</li>
       <li><strong>Scan results can contain hostile text.</strong> Banners, page titles and certificate names are written by whoever runs the scanned system. The agent tells the assistant to treat them as data, but do not give the same assistant tools that act elsewhere (email, tickets, a shell) without approving each action.</li>
-      <li><strong>Web-based assistants such as claude.ai connect from the internet</strong> and cannot reach an agent inside your network. Use one that runs on a computer inside it.</li>
+      <li><strong>Web-based assistants (in a browser tab, such as claude.ai or chatgpt.com) connect from the internet</strong> and cannot reach an agent inside your network. Use one that runs on a computer inside it, with any model.</li>
     </ul>
 
     <h3>Recent connections</h3>
