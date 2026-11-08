@@ -48,6 +48,8 @@ type CertControl interface {
 	InstallCustom(certPEM, keyPEM string) (ServerCertInfo, []string, error)
 	// RemoveCustom goes back to the automatic self-signed certificate.
 	RemoveCustom() error
+	// CertificatePEM is the certificate the web server presents now (never its key), or nil.
+	CertificatePEM() []byte
 }
 
 // attachVault gives the keeper the vault used to seal an uploaded private key, and loads any
@@ -86,6 +88,21 @@ func (k *certKeeper) loadCustomLocked() {
 	}
 	c.Leaf = leaf
 	k.custom, k.customLeaf, k.customChain = &c, leaf, len(c.Certificate)
+}
+
+// CertificatePEM implements CertControl. The certificate is public (every TLS client receives it),
+// so it can be handed to a computer that must be told to trust it, such as an AI assistant's.
+func (k *certKeeper) CertificatePEM() []byte {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	leaf := k.leaf
+	if k.customUsable() != nil {
+		leaf = k.customLeaf
+	}
+	if leaf == nil {
+		return nil
+	}
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leaf.Raw})
 }
 
 // customUsable returns the uploaded certificate while it is within its validity period.

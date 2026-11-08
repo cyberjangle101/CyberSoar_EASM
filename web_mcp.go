@@ -31,21 +31,47 @@ func (s *Server) mcpView(r *http.Request, st Settings) map[string]any {
 	return map[string]any{
 		"On":         st.MCPEnabled,
 		"Endpoint":   endpoint,
+		"Remote":     mcpRemoteSnippet(endpoint),
+		"Bridge":     mcpBridgeSnippet(endpoint, selfSigned),
 		"ClaudeCode": `claude mcp add --transport http easm ` + endpoint + ` --header "Authorization: Bearer <your token>"`,
-		"Desktop": `{
-  "mcpServers": {
-    "easm": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "` + endpoint + `", "--header", "Authorization:${AUTH_HEADER}"],
-      "env": { "AUTH_HEADER": "Bearer <your token>" }
-    }
-  }
-}`,
 		"Tools":      tools,
 		"Recent":     recent,
 		"SelfSigned": selfSigned,
 		"Versions":   strings.Join(mcpVersions, ", "),
 	}
+}
+
+// mcpRemoteSnippet is the configuration for clients that connect to a remote (HTTP) MCP server
+// themselves. Most use this shape; some name the keys differently (VS Code: "servers", "type": "http").
+func mcpRemoteSnippet(endpoint string) string {
+	return `{
+  "mcpServers": {
+    "easm": {
+      "url": "` + endpoint + `",
+      "headers": { "Authorization": "Bearer <your token>" }
+    }
+  }
+}`
+}
+
+// mcpBridgeSnippet is the configuration for clients that only start local (stdio) servers. The
+// mcp-remote bridge does not expand ${VAR} in a --header argument, so the header is written out
+// in full: as Name:Value with no space after the colon, which survives Windows argument quoting.
+// A self-signed agent also needs the bridge (a Node program) to be told to trust its certificate.
+func mcpBridgeSnippet(endpoint string, selfSigned bool) string {
+	env := ""
+	if selfSigned {
+		env = `,
+      "env": { "NODE_EXTRA_CA_CERTS": "<path to easm-agent.crt>" }`
+	}
+	return `{
+  "mcpServers": {
+    "easm": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "` + endpoint + `", "--transport", "http-only", "--header", "Authorization:Bearer <your token>"]` + env + `
+    }
+  }
+}`
 }
 
 // mcpEndpoint is the address assistants use: the dashboard address from Settings when one is

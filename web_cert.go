@@ -46,6 +46,22 @@ func (s *Server) certUpload(w http.ResponseWriter, r *http.Request, sess *Sessio
 	back(kind, msg)
 }
 
+// certDownload serves the certificate the web server presents (not its key), so the computer
+// that runs an AI assistant or a script can be set to trust a self-signed agent.
+func (s *Server) certDownload(w http.ResponseWriter, r *http.Request, _ *Session) {
+	var p []byte
+	if s.certs != nil {
+		p = s.certs.CertificatePEM()
+	}
+	if p == nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "application/x-pem-file")
+	w.Header().Set("Content-Disposition", `attachment; filename="easm-agent.crt"`)
+	_, _ = w.Write(p)
+}
+
 // certRemove goes back to the automatic self-signed certificate.
 func (s *Server) certRemove(w http.ResponseWriter, r *http.Request, sess *Session) {
 	if s.certs == nil {
