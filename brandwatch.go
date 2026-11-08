@@ -49,17 +49,32 @@ const (
 )
 
 // brandWords is the target's own name (acme for acme.co.uk) plus the extra words configured,
-// lower-cased, de-duplicated, and only those long enough to be distinctive.
+// lower-cased, de-duplicated, and only those long enough to be distinctive. Hyphens are
+// dropped (acme-corp.com watches acmecorp), as brandMatch compares names without them.
 func brandWords(root string, extra []string) []string {
+	words, _ := brandTerms(root, extra)
+	return words
+}
+
+// brandTerms returns the brand words and the certificate-log searches for them: each word, and
+// also its hyphenated spelling where it had one, since %acmecorp% does not find acme-corp-login.com.
+func brandTerms(root string, extra []string) (words, searches []string) {
 	seen := map[string]bool{}
-	var out []string
 	add := func(w string) {
 		w = strings.ToLower(strings.TrimSpace(w))
-		if len(w) < brandMinWord || seen[w] || !validLabel(w) || strings.Contains(w, "-") {
+		joined := strings.ReplaceAll(w, "-", "")
+		if len(joined) < brandMinWord || !validLabel(w) || !validLabel(joined) {
 			return
 		}
-		seen[w] = true
-		out = append(out, w)
+		if !seen[joined] {
+			seen[joined] = true
+			words = append(words, joined)
+			searches = append(searches, joined)
+		}
+		if w != joined && !seen[w] {
+			seen[w] = true
+			searches = append(searches, w)
+		}
 	}
 	if label, _, ok := splitRegistrable(root); ok {
 		add(label)
@@ -67,7 +82,7 @@ func brandWords(root string, extra []string) []string {
 	for _, w := range extra {
 		add(w)
 	}
-	return out
+	return words, searches
 }
 
 // homoglyphFold undoes the digit-for-letter swaps used to dodge simple matching (acrne is
@@ -136,7 +151,7 @@ func registrableOf(name string) (string, bool) {
 // generated variations already cover and the organisation's own domains.
 func (s *Scanner) brandCandidates(ctx context.Context, root string, have []lookalike, own map[string]bool) []lookalike {
 	dc := s.cfg.Discover
-	words := brandWords(root, dc.BrandWords)
+	words, searches := brandTerms(root, dc.BrandWords)
 	if len(words) == 0 || (!dc.BrandCT && dc.NRDFeedURL == "") {
 		return nil
 	}
@@ -162,7 +177,7 @@ func (s *Scanner) brandCandidates(ctx context.Context, root string, have []looka
 	}
 	if dc.BrandCT && s.disc != nil {
 		since := time.Now().Add(-brandCTWindow)
-		for _, w := range words {
+		for _, w := range searches {
 			names, err := s.disc.BrandCertNames(ctx, w, since)
 			s.health.Record("brand-ct", "scan", err == nil, 0, err)
 			if err != nil {

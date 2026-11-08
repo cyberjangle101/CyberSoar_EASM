@@ -247,8 +247,8 @@ func (s *Settings) Normalize() error {
 		if w == "" {
 			continue
 		}
-		if len(w) < brandMinWord || !validLabel(w) || strings.Contains(w, "-") {
-			return fmt.Errorf("brand word %q: use letters and digits only, at least %d of them", clip(w, 40), brandMinWord)
+		if len(strings.ReplaceAll(w, "-", "")) < brandMinWord || !validLabel(w) {
+			return fmt.Errorf("brand word %q: use letters, digits and hyphens, at least %d letters or digits", clip(w, 40), brandMinWord)
 		}
 		words = append(words, w)
 	}

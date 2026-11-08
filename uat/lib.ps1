@@ -31,7 +31,8 @@ function Start-Agent {
     $cfg = Join-Path (Split-Path $DataDir) ("agent-$Port.yaml")
     Set-Content -Path $cfg -Encoding ascii -Value ("logging:`r`n  level: info`r`n  file: " + (($DataDir -replace '\\', '/') + "/agent.log"))
     $argList = @('-data-dir', $DataDir, '-listen', "127.0.0.1:$Port", '-plain-http', '-config', $cfg) + $Extra
-    $p = Start-Process -FilePath $Exe -ArgumentList $argList -PassThru -WindowStyle Hidden
+    $hidden = if ($IsLinux -or $IsMacOS) { @{} } else { @{ WindowStyle = 'Hidden' } }
+    $p = Start-Process -FilePath $Exe -ArgumentList $argList -PassThru @hidden
     Remove-Item Env:EASM_KEY_PASSPHRASE
     for ($i = 0; $i -lt 60; $i++) {
         Start-Sleep -Milliseconds 500
@@ -56,6 +57,11 @@ function Invoke-Page($Session, [string]$Base, [string]$Path, [hashtable]$Form = 
     catch {
         $resp = $_.Exception.Response
         if (-not $resp) { throw }
+        if ($resp.GetType().FullName -eq 'System.Net.Http.HttpResponseMessage') { # PowerShell 7: the body is in ErrorDetails (5.1 may not have the type loaded)
+            $b = if ($_.ErrorDetails) { $_.ErrorDetails.Message } else { '' }
+            $loc = if ($resp.Headers.Location) { $resp.Headers.Location.OriginalString } else { $null }
+            return @{ c = [int]$resp.StatusCode; b = $b; l = $loc }
+        }
         $sr = New-Object IO.StreamReader($resp.GetResponseStream())
         return @{ c = [int]$resp.StatusCode; b = $sr.ReadToEnd(); l = $resp.Headers['Location'] }
     }

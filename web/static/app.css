@@ -26,6 +26,12 @@
     --shadow: none;
   }
 }
+/* Built-in controls and scrollbars follow the chosen theme. A page that chose light says "only
+   light": browsers with automatic dark mode for web pages (Edge and Chrome flags, some Android
+   and Samsung browsers) would otherwise repaint it with their own colours. */
+:root { color-scheme: light dark; }
+:root[data-theme="light"] { color-scheme: only light; }
+:root[data-theme="dark"] { color-scheme: dark; }
 :root[data-theme="dark"] {
   --bg: #0b1120; --panel: #111a2e; --text: #e5eaf2; --muted: #94a3b8; --line: #233046; --control: #64748b;
     --accent: #60a5fa; --accent-text: #0b1220; --accent-bg: #13274a;

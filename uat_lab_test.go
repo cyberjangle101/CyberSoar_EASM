@@ -72,6 +72,27 @@ func TestLab(t *testing.T) {
 	h.src.crtDelay = map[string]time.Duration{"slowco.test": 90 * time.Second}
 	h.src.mu.Unlock()
 
+	// initech.test: the v1.9.20 sources (switched on in Settings by uat\sources.ps1). ip.thc.org alone
+	// knows files.initech.test; the Wayback Machine kept an .env and a database dump; and a recently
+	// certified initech-login.test, with mail and a web site, imitates the brand.
+	for _, rr := range []string{
+		"initech.test. 60 IN A 203.0.113.50",
+		"initech.test. 60 IN NS ns1.initech.test.",
+		"www.initech.test. 60 IN A 203.0.113.50",
+		"files.initech.test. 60 IN A 203.0.113.51",
+		"initech-login.test. 60 IN NS ns.evil.test.",
+		"initech-login.test. 60 IN MX 10 mx.initech-login.test.",
+		"initech-login.test. 60 IN A 203.0.113.99",
+	} {
+		d.add(t, rr)
+	}
+	d.addIP(t, "203.0.113.50", 64500, "203.0.113.0/24", "ACME-NET")
+	d.addIP(t, "203.0.113.51", 64500, "203.0.113.0/24", "ACME-NET")
+	h.src.addCert("initech.test", "www.initech.test")
+	h.src.addRecentCert("initech-login.test", "www.initech-login.test")
+	h.src.addTHC("files.initech.test", "unrelated.example.test")
+	h.src.addArchived("https://www.initech.test/.env", "https://www.initech.test/backup/db.sql.gz", "https://www.initech.test/about.html")
+
 	// "Confirm via active scan" reaches the lab's made-up internet hosts through local
 	// listeners: vpn's SMB port answers (no banner, like real SMB), its RDP port is
 	// closed, and dev's SSH port sends a banner. Nothing outside this machine is contacted.

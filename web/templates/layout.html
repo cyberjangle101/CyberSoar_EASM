@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="{{if .Theme}}{{.Theme}}{{else}}light dark{{end}}">
+<meta name="color-scheme" content="{{if eq .Theme "light"}}only light{{else if .Theme}}{{.Theme}}{{else}}light dark{{end}}">
 <title>{{if .Title}}{{.Title}} · {{end}}CyberSoar EASM</title>
 {{if .Refresh}}<meta http-equiv="refresh" content="{{.Refresh}}">{{end}}
 <link rel="icon" type="image/png" href="/static/favicon.png">
