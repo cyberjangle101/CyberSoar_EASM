@@ -47,6 +47,7 @@ These are web APIs and downloads. All are HTTPS on port 443 and all can go throu
 | `urlscan.io` | Names seen in public scans | On | `urlscan_enabled` |
 | `ip.thc.org` | Names from passive DNS, certificates and scans (`POST /api/v1/lookup/subdomains`, up to 10 pages two seconds apart) | On | `thc_enabled` |
 | `web.archive.org` | Names in archived URLs | Off | `wayback_enabled` |
+| `web.archive.org` | Archived files from your hosts that should not be public (one CDX query per domain, EASM-WEB-013) | Off | `archive_exposure_enabled` |
 | `otx.alienvault.com` | Passive DNS | Off; needs a free key | `otx_enabled` + OTX API key |
 | `jonlu.ca` | Anubis subdomain dataset | Off (the service blocks automated clients) | `anubis_enabled` |
 

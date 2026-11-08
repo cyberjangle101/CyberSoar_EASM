@@ -94,8 +94,9 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 | EASM-WEB-010 | Session cookie without Secure or HttpOnly | `insecure-auth-cookie` | Active: connects to the organisation's own servers (opt-in) | Medium on a page recognised as a login portal (EASM-WEB-001), otherwise Low |
 | EASM-WEB-011 | Baseline security headers are missing | `missing-security-headers` | Active: connects to the organisation's own servers (opt-in) | Medium when a login portal (EASM-WEB-001) can be framed (no X-Frame-Options or CSP frame-ancestors), otherwise Low |
 | EASM-WEB-012 | API key or secret in a public web page | `secret-in-page` | Active: connects to the organisation's own servers (opt-in) | High for private keys and cloud, payment, code-hosting, messaging and AI service keys; Medium for a Slack webhook; Low for a Google API key |
+| EASM-WEB-013 | Files that should not be public were archived from your site | `archived-exposure` | Passive: public sources (OSINT) | Medium for configuration or secrets files and database dumps or backups; Low for log files, admin or diagnostic pages, compressed archives and spreadsheets; Info for documents |
 
-77 rules.
+78 rules.
 
 ## DNS and domain
 
@@ -665,6 +666,16 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 * **Why it matters:** Everything a web page or script contains is public. A live key in it lets anyone use the service it belongs to as you: read data, run up charges, send email or messages in your name, or reach your code and cloud. Automated scanners collect such keys within hours.
 * **What to do:** Revoke the key at the service now and issue a new one (removing it from the page is not enough: it has been public). Keep keys on the server side, behind your own API, and check the service's logs for use you do not recognise.
 
+### EASM-WEB-013: Files that should not be public were archived from your site
+
+* **Finding type:** `archived-exposure`
+* **Collection:** Passive: public sources (OSINT)
+* **Triggered when:** With archived-file discovery on (off by default): the Wayback Machine holds a capture (HTTP 200) of a URL on the domain or a subdomain whose path is a configuration or secrets file (.env, .git/config, .htpasswd, private keys, wp-config.php backups...), a database dump or backup (.sql, .bak, .dump...), a log file, an admin or diagnostic page (phpMyAdmin, server-status, Spring actuator...), a compressed archive, a spreadsheet or data export, or a document. One finding per host and kind, quoting the newest five URLs.
+* **Severity:** Medium for configuration or secrets files and database dumps or backups; Low for log files, admin or diagnostic pages, compressed archives and spreadsheets; Info for documents
+* **Evidence:** Wayback Machine (web.archive.org)
+* **Why it matters:** The public web archive kept copies of files from your hosts that often hold secrets or personal data: configuration and .env files, database dumps, backups, logs, admin pages, spreadsheets or documents. Anyone can download the archived copy, even after the file was removed from your site, and attackers search the archive for exactly these.
+* **What to do:** Open each archived copy and see what it held. If it contains passwords, keys or tokens, change them. If it is still on your site, remove it or protect it. To have copies taken out of the archive, ask the Internet Archive (info@archive.org) as the site owner. Accept the risk for files that are meant to be public, such as published reports.
+
 ## Cloud and storage
 
 ### EASM-CLOUD-001: Cloud storage bucket can be listed by anyone
@@ -893,6 +904,7 @@ Every external source the agent can use, whether it needs a key, what it is sent
 | urlscan.io | Subdomain discovery (public scans) | None | The domain name | On | Inventory |
 | Wayback Machine | Subdomain discovery (archived URLs) | None | The domain name | Off (slow) | Inventory |
 | ip.thc.org | Subdomain discovery (passive DNS, certificates, scans) | None (up to 10 paced requests per domain) | The domain name | On | Inventory |
+| Wayback Machine (archived files) | Web exposure: files from your hosts kept in the public archive | None | The domain name | Off | WEB-013 |
 | AlienVault OTX | Subdomain discovery (passive DNS) | Free key | The domain name | Off until a key is saved | Inventory |
 | Anubis (jonlu.ca) | Subdomain discovery | None | The domain name | Off (blocks automated clients) | Inventory |
 | Shodan DNS | Subdomain discovery | Shodan key (1 query credit per scan) | The domain name | Off | Inventory |

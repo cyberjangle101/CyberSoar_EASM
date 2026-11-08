@@ -1294,7 +1294,7 @@ func (s *Server) findings(w http.ResponseWriter, r *http.Request, sess *Session)
 
 var eventKinds = []string{"subdomain", "cert", "dns-a", "dns-aaaa", "dns-cname", "dns-ns", "dns-mx", "dns-txt",
 	"dangling-cname", "dangling-ns", "dangling-mx", "dns-wildcard", "domain-unlocked", "ct-unauthorized-ca", "shadow-it-ct-subdomain",
-	"asn-unexpected", "private-ip", "email-auth", "dns-removed", "host-gone", "service-removed", "finding-resolved", "web-service", "related-domain", "lookalike-domain", "leaked-credentials", "repo-exposure", "cloud-service"}
+	"asn-unexpected", "private-ip", "email-auth", "dns-removed", "host-gone", "service-removed", "finding-resolved", "web-service", "related-domain", "lookalike-domain", "archived-exposure", "leaked-credentials", "repo-exposure", "cloud-service"}
 
 // events renders the change log.
 func (s *Server) events(w http.ResponseWriter, r *http.Request, sess *Session) {
@@ -1560,6 +1560,7 @@ func parseSettingsForm(r *http.Request, cur Settings) (Settings, error) {
 	s.LookalikeProbe, s.DependencyConfusion, s.DNSBLEnabled = on("lookalike_probe"), on("dependency_confusion"), on("dnsbl_enabled")
 	s.LookalikeBrandCT, s.NRDFeedURL = on("lookalike_brand_ct"), str("nrd_feed_url")
 	s.LookalikeBrandWords = splitList(r.PostFormValue("lookalike_brand_words"), true)
+	s.ArchiveExposureEnabled = on("archive_exposure_enabled")
 	if err := s.Normalize(); err != nil {
 		return cur, err
 	}
@@ -1721,6 +1722,7 @@ var threatIntelChecks = []struct {
 	{"look-alike site clones", "phishing-clone", func(s Settings) bool { return s.LookalikeEnabled && s.LookalikeProbe }},
 	{"dependency confusion", "dependency-confusion", func(s Settings) bool { return s.DependencyConfusion }},
 	{"public code", "repo-exposure", func(s Settings) bool { return s.GitHubEnabled }},
+	{"archived files", "archived-exposure", func(s Settings) bool { return s.ArchiveExposureEnabled }},
 	{"leaked accounts", "leaked-credentials", func(s Settings) bool { return s.HIBPEnabled }},
 }
 

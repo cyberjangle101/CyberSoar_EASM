@@ -121,6 +121,8 @@ type Settings struct {
 	LookalikeBrandWords []string // brand words besides each domain's own name
 	NRDFeedURL          string   // a newly registered domains feed the organisation is licensed for
 
+	ArchiveExposureEnabled bool // files from your hosts kept by the Wayback Machine (passive; off by default)
+
 	// SMTP
 	SMTPEnabled            bool
 	SMTPHost               string
@@ -405,7 +407,7 @@ func (s Settings) RuntimeWith(sec Secrets) *Config {
 			Concurrency: s.ActiveConcurrency, Timeout: time.Duration(s.ActiveTimeoutSeconds) * time.Second},
 		Discover: DiscoverCfg{Lookalikes: s.LookalikeEnabled, LookalikeMax: s.LookalikeMax, Related: s.RelatedEnabled, ReverseIP: s.ReverseIPEnabled,
 			LookalikeProbe: s.LookalikeEnabled && s.LookalikeProbe, DependencyConfusion: s.DependencyConfusion, DNSBL: s.DNSBLEnabled,
-			BrandCT: s.LookalikeEnabled && s.LookalikeBrandCT, BrandWords: s.LookalikeBrandWords},
+			BrandCT: s.LookalikeEnabled && s.LookalikeBrandCT, BrandWords: s.LookalikeBrandWords, ArchiveExposure: s.ArchiveExposureEnabled},
 		RetentionDays: s.EventRetentionDays,
 		PublicURL:     s.PublicURL,
 	}

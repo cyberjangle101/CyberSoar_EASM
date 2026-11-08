@@ -113,6 +113,8 @@ func evidenceLinks(f *Finding, ip string, cves []string) []EvidenceLink {
 			l = append(l, EvidenceLink{"security.txt on the site", "https://" + d + "/.well-known/security.txt", "the file the finding says is missing"})
 		case f.Kind == "default-page", f.Kind == "login-portal", f.Kind == "directory-listing", f.Kind == "debug-mode-enabled", f.Kind == "second-order-script-takeover", f.Kind == "exposed-api-schema":
 			l = append(l, EvidenceLink{"The site", "https://" + d + "/", "open the page the finding is about"})
+		case f.Kind == "archived-exposure":
+			l = append(l, EvidenceLink{"Wayback Machine", "https://web.archive.org/web/*/" + url.PathEscape(d) + "/*", "every archived URL on this host"})
 		case f.Kind == "repo-exposure":
 			l = append(l, EvidenceLink{"GitHub code search", "https://github.com/search?type=code&q=" + url.QueryEscape(`"`+d+`"`), "every public file that mentions the domain"})
 		}
