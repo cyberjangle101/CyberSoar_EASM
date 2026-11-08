@@ -234,6 +234,17 @@ func TestSearchPageAndTheme(t *testing.T) {
 	if _, body, _ = b.get("/"); !strings.Contains(body, `data-theme="light"`) || !strings.Contains(body, `name="color-scheme" content="only light"`) {
 		t.Fatal("light theme not applied, or not protected from automatic dark mode")
 	}
+	// the account page offers the way back to following the system
+	if _, body, _ = b.get("/account"); !strings.Contains(body, `value="light" aria-pressed="true"`) || !strings.Contains(body, `value="system" aria-pressed="false"`) {
+		t.Fatalf("appearance choices: %.300s", body)
+	}
+	if c, _, resp = b.post("/account/theme", url.Values{"theme": {"system"}, "next": {"/account#appearance"}}); c != 303 || resp.Header.Get("Location") != "/account#appearance" {
+		t.Fatalf("follow system: %d %s", c, resp.Header.Get("Location"))
+	}
+	if _, body, _ = b.get("/account"); strings.Contains(body, "data-theme=") || !strings.Contains(body, `name="color-scheme" content="light dark"`) ||
+		!strings.Contains(body, `value="system" aria-pressed="true"`) {
+		t.Fatal("follow system did not clear the chosen theme")
+	}
 	if c, _, _ = b.postRaw("/account/theme", url.Values{"theme": {"dark"}}); c != 403 {
 		t.Fatalf("theme without CSRF: %d", c)
 	}

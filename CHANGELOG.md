@@ -4,6 +4,12 @@ What changed in each release of CyberSoar EASM (called EASM Agent before 1.9.19)
 
 ## 1.9
 
+**Unreleased:**
+
+* **Findings on phones.** On a narrow screen each finding is now a card with labelled sections (source, risk, fix, status and actions) instead of a table several screens wide that had to be scrolled sideways.
+* **Back to following the system theme.** My account → *Appearance* offers *Follow system*, *Light* and *Dark*. Before, once you used the light/dark button the page kept that choice and could not follow the device setting again without clearing cookies.
+* **Release and CI downloads retry.** Tool downloads in the workflows (golangci-lint, Gitleaks, kubeconform, kind, PSScriptAnalyzer) retry on a temporary error such as a GitHub 503, which had failed a container check before.
+
 **v1.9.20 (AI assistant set-up that works with any MCP client, network requirements, new data sources, light mode in Edge):**
 
 * **New check: files that should not be public, from the web archive (EASM-WEB-013).** With Settings → Exposure intelligence → *Archived files* on (off by default), each scan asks the Wayback Machine once per domain for archived `.env` and other configuration or secrets files, database dumps and backups, logs, admin or diagnostic pages (phpMyAdmin, server-status, Spring actuator), compressed archives, spreadsheets and documents from your hosts. These are the "filetype:" and "inurl:" searches attackers run, without a search engine, whose APIs are closing or forbid automated use. You get one finding per host and kind, quoting the newest five URLs with links to the archived copies. Nothing is sent to your own servers. The finding closes when the archive no longer holds such files.
