@@ -34,7 +34,7 @@ function Get-SettingsForm($s) {
     foreach ($m in [regex]::Matches($form, '(?s)<textarea\b[^>]*name="([^"]+)"[^>]*>(.*?)</textarea>')) { $pairs.Add(@($m.Groups[1].Value, (Dec $m.Groups[2].Value))) }
     return , $pairs
 }
-function Save-Settings($s, $pairs, [hashtable]$set, [string[]]$tick) {
+function Save-SettingsForm($s, $pairs, [hashtable]$set, [string[]]$tick) {
     $out = New-Object System.Collections.Generic.List[object]
     foreach ($p in $pairs) { if (-not $set.ContainsKey($p[0]) -and $tick -notcontains $p[0]) { $out.Add($p) } }
     foreach ($k in $set.Keys) { $out.Add(@($k, $set[$k])) }
@@ -60,7 +60,7 @@ Check 'NS-1.1' 'Settings shows ip.thc.org, brand watch, newly registered feed an
 Check 'NS-1.2' 'brand watch ticked by default, archived files off by default' (($st -match '<input[^>]*name="lookalike_brand_ct"[^>]*checked') -and ($st -notmatch '<input[^>]*name="archive_exposure_enabled"[^>]*checked'))
 Check 'NS-1.3' 'every new setting has a visible label' ((([regex]::Matches($st, '<label[^>]*>(?:(?!</label>).)*name="(thc_enabled|lookalike_brand_ct|archive_exposure_enabled)"', 'Singleline')).Count -eq 3) -or ($st -match 'for="thc_enabled"'))
 $form = Get-SettingsForm $a
-$saved = Save-Settings $a $form @{ lookalike_brand_words = 'initrode' } @('thc_enabled', 'lookalike_enabled', 'lookalike_brand_ct', 'archive_exposure_enabled')
+$saved = Save-SettingsForm $a $form @{ lookalike_brand_words = 'initrode' } @('thc_enabled', 'lookalike_enabled', 'lookalike_brand_ct', 'archive_exposure_enabled')
 $st2 = (Invoke-Page $a $B '/settings').b
 Check 'NS-1.4' 'saving ticks ip.thc.org, look-alikes, brand watch and archived files' (($st2 -match '<input[^>]*name="thc_enabled"[^>]*checked') -and ($st2 -match '<input[^>]*name="lookalike_enabled"[^>]*checked') -and ($st2 -match '<input[^>]*name="archive_exposure_enabled"[^>]*checked')) (Flash $saved)
 Check 'NS-1.5' 'brand words saved' ($st2 -match 'initrode')
@@ -135,7 +135,7 @@ $null = Wait-Idle $a
 $f2 = (Invoke-Page $a $B '/findings').b
 Check 'NS-6.1' 'rescan: archived and look-alike findings still open' (($f2 -match 'initech-login\.test') -and ($f2 -match '(?i)archived'))
 $form = Get-SettingsForm $a
-$off = Save-Settings $a ($form | Where-Object { $_[0] -ne 'archive_exposure_enabled' }) @{} @()
+$off = Save-SettingsForm $a ($form | Where-Object { $_[0] -ne 'archive_exposure_enabled' }) @{} @()
 Check 'NS-6.2' 'switching archived files off closes its open findings and says so' ((Flash $off) -match 'Closed 2 archived files finding') (Flash $off)
 Check 'NS-6.3' 'the closing is audited' ((Invoke-Page $a $B '/audit').b -match 'the archived files check was switched off')
 $fj2 = Invoke-RestMethod -Uri "$B/api/v1/findings?target=initech.test&status=open" -Headers $hdr
