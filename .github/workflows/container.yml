@@ -89,7 +89,7 @@ jobs:
           KUBECONFORM_VERSION: v0.8.0
           KUBECONFORM_SHA256: 9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883
         run: |
-          curl -sSfL -o "$RUNNER_TEMP/kubeconform.tar.gz" \
+          curl -sSfL --retry 4 --retry-all-errors -o "$RUNNER_TEMP/kubeconform.tar.gz" \
             "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
           echo "${KUBECONFORM_SHA256}  $RUNNER_TEMP/kubeconform.tar.gz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/kubeconform.tar.gz" -C "$RUNNER_TEMP" kubeconform

@@ -16,6 +16,16 @@
   <h2>Two-factor sign-in</h2>
   {{if .Directory}}<p class="muted">Your sign-in is handled by Active Directory, so two-factor is whatever your directory requires.</p>{{else}}<p class="muted">Adds a code from an authenticator app to your password. <a href="/account/2fa">Manage two-factor sign-in</a></p>{{end}}
 </section>
+<section class="card" id="appearance">
+  <h2>Appearance</h2>
+  <p class="muted">The button in the top bar switches between light and dark. Choose <strong>Follow system</strong> to use your device&rsquo;s setting again. Stored in this browser only.</p>
+  <form method="post" action="/account/theme" class="actions"> {{/* nosemgrep: python.django.security.django-no-csrf-token.django-no-csrf-token -- Go template: the csrf hidden field is checked by s.auth */}}
+    <input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="next" value="/account#appearance">
+    <button class="btn{{if not .Theme}} primary{{end}}" type="submit" name="theme" value="system" aria-pressed="{{if not .Theme}}true{{else}}false{{end}}">Follow system</button>
+    <button class="btn{{if eq .Theme "light"}} primary{{end}}" type="submit" name="theme" value="light" aria-pressed="{{if eq .Theme "light"}}true{{else}}false{{end}}">Light</button>
+    <button class="btn{{if eq .Theme "dark"}} primary{{end}}" type="submit" name="theme" value="dark" aria-pressed="{{if eq .Theme "dark"}}true{{else}}false{{end}}">Dark</button>
+  </form>
+</section>
 <section class="card" id="tokens">
   <h2>API tokens</h2>
   <p class="muted">For scripts and tools such as a SIEM or ticketing system, and for AI assistants (MCP). A token acts with your permissions at most, and stops working if your account is disabled. Send it as <span class="mono">Authorization: Bearer &lt;token&gt;</span> to <span class="mono">/api/v1/…</span> (findings, events, assets, targets, report, export/sarif, export/stix, and POST scan), or give it to an assistant that connects to <span class="mono">/mcp</span>{{if .IsAdmin}} (set-up steps in <a href="/settings#mcp">Settings → AI assistants</a>){{end}}. The token is shown only once.</p>

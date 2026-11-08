@@ -39,13 +39,19 @@ func initialOf(name string) string {
 	return string(unicode.ToUpper(r))
 }
 
-// themeSet stores the chosen theme and returns to the page the toggle was pressed on.
+// themeSet stores the chosen theme ("system" clears it, so the page follows the
+// operating system again) and returns to the page the choice was made on.
 func (s *Server) themeSet(w http.ResponseWriter, r *http.Request, _ *Session) {
 	t := r.PostFormValue("theme")
-	if t != "light" && t != "dark" {
+	maxAge := 400 * 24 * 3600
+	switch t {
+	case "light", "dark":
+	case "system":
+		t, maxAge = "", -1
+	default:
 		t = "dark" // the toggle was pressed while following the system; the script normally fills this in
 	}
 	http.SetCookie(w, &http.Cookie{Name: themeCookie, Value: t, Path: "/", HttpOnly: true, Secure: s.secure, // nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure -- Secure is on whenever the UI is served over TLS; plain-HTTP mode could not send it back
-		SameSite: http.SameSiteStrictMode, MaxAge: 400 * 24 * 3600})
+		SameSite: http.SameSiteStrictMode, MaxAge: maxAge})
 	http.Redirect(w, r, safeNext(r.PostFormValue("next"), "/"), http.StatusSeeOther) // nosemgrep: go.lang.security.injection.open-redirect.open-redirect -- safeNext allows only same-site paths
 }

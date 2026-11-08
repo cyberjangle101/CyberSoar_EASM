@@ -301,11 +301,11 @@ jobs:
           GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
         run: |
           archive="golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64"
-          curl -sSfL -o "$RUNNER_TEMP/golangci-lint.tar.gz" \
+          curl -sSfL --retry 4 --retry-all-errors -o "$RUNNER_TEMP/golangci-lint.tar.gz" \
             "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/${archive}.tar.gz"
           echo "${GOLANGCI_LINT_SHA256}  $RUNNER_TEMP/golangci-lint.tar.gz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/golangci-lint.tar.gz" -C "$RUNNER_TEMP" --strip-components=1 "${archive}/golangci-lint"
-          curl -sSfL -o "$RUNNER_TEMP/gitleaks.tar.gz" \
+          curl -sSfL --retry 4 --retry-all-errors -o "$RUNNER_TEMP/gitleaks.tar.gz" \
             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
@@ -523,7 +523,7 @@ jobs:
           KIND_VERSION: v0.33.0
           KIND_SHA256: aee6151561422756b764a4ae28e7f44cda5af5a9eead3cc9985112b1de8d8e0d
         run: |
-          curl -sSfL -o "$RUNNER_TEMP/kind" "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-linux-amd64"
+          curl -sSfL --retry 4 --retry-all-errors -o "$RUNNER_TEMP/kind" "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-linux-amd64"
           echo "${KIND_SHA256}  $RUNNER_TEMP/kind" | sha256sum -c -
           chmod +x "$RUNNER_TEMP/kind"
 

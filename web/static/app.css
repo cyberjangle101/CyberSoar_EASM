@@ -189,6 +189,15 @@ details > summary { cursor: pointer; font-weight: 600; margin: 4px 0 8px; color:
 /* findings table: long explanatory text wraps in readable columns */
 td.prose { min-width: 170px; max-width: 270px; line-height: 1.4; }
 td.prose strong { display: block; margin-bottom: 2px; }
+/* on phones each finding becomes a stacked card instead of a table several screens wide */
+@media (max-width: 640px) {
+  table.ftable, table.ftable tbody, table.ftable tr, table.ftable td, table.ftable tr.group th { display: block; width: auto; }
+  table.ftable thead { display: none; }
+  table.ftable tr { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  table.ftable td { border: 0; padding: 3px 0; max-width: none; min-width: 0; }
+  table.ftable td[data-label]::before { content: attr(data-label); display: block; font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  table.ftable td.actions { white-space: normal; padding-top: 8px; }
+}
 
 .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 14px; border-bottom: 1px solid var(--line); }
 .tabs a { padding: 8px 12px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
