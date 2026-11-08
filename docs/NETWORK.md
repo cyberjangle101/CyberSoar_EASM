@@ -45,6 +45,7 @@ These are web APIs and downloads. All are HTTPS on port 443 and all can go throu
 | `api.certspotter.com` | Second Certificate Transparency search | On | `certspotter_enabled` |
 | `api.hackertarget.com` | Host search; also reverse-IP lookups (Wider discovery) | Host search on; reverse IP off | `hackertarget_enabled`, `reverseip_enabled` |
 | `urlscan.io` | Names seen in public scans | On | `urlscan_enabled` |
+| `ip.thc.org` | Names from passive DNS, certificates and scans (`POST /api/v1/lookup/subdomains`, up to 10 pages two seconds apart) | On | `thc_enabled` |
 | `web.archive.org` | Names in archived URLs | Off | `wayback_enabled` |
 | `otx.alienvault.com` | Passive DNS | Off; needs a free key | `otx_enabled` + OTX API key |
 | `jonlu.ca` | Anubis subdomain dataset | Off (the service blocks automated clients) | `anubis_enabled` |

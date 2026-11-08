@@ -63,6 +63,7 @@ type Settings struct {
 	CertSpotterEnabled  bool // second Certificate Transparency search (no key)
 	URLScanEnabled      bool // names in public urlscan.io scans (no key)
 	WaybackEnabled      bool // names in Wayback Machine archived URLs (no key; slow)
+	THCEnabled          bool // names in the ip.thc.org dataset (no key)
 
 	// DNS
 	DNSResolvers      []string
@@ -161,6 +162,7 @@ func DefaultSettings() Settings {
 		CertSpotterEnabled:  true,
 		URLScanEnabled:      true,
 		WaybackEnabled:      false, // the archive is slow and often times out for large domains
+		THCEnabled:          true,
 
 		DNSResolvers:      []string{"1.1.1.1:53", "8.8.8.8:53"},
 		DNSWorkers:        20,
@@ -353,6 +355,7 @@ func (s Settings) RuntimeWith(sec Secrets) *Config {
 			CertSpotter:  Toggle{s.CertSpotterEnabled},
 			URLScan:      Toggle{s.URLScanEnabled},
 			Wayback:      Toggle{s.WaybackEnabled},
+			THC:          Toggle{s.THCEnabled},
 			UserAgent:    "easm-agent/" + version + " (+defensive attack-surface monitoring)",
 		},
 		DNS: DNSCfg{

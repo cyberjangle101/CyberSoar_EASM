@@ -16,7 +16,7 @@ Attack surfaces drift. A forgotten subdomain, a new certificate or an unexpected
 
 ## Features
 
-- **Passive discovery at no cost:** certificate transparency (crt.sh, CertSpotter), HackerTarget and urlscan.io with no key; more sources with free or paid keys
+- **Passive discovery at no cost:** certificate transparency (crt.sh, CertSpotter), HackerTarget, urlscan.io and ip.thc.org with no key; more sources with free or paid keys
 - **DNS, ownership and exposure:** resolves every name, maps addresses to their network owner (Team Cymru, RIPEstat) to spot assets outside your expected networks, and adds open ports and CVEs from Shodan InternetDB and optional keyed sources
 - **Findings with evidence:** each finding gives its source of evidence, the risk and the fix, with links to check it yourself; every rule is listed in [docs/RULES.md](docs/RULES.md)
 - **Delta-only alerting:** email, Slack, Teams, webhooks, Jira, and syslog/SIEM over TLS to a collector on your own network, only when something changes, so routine scans stay quiet
@@ -65,7 +65,7 @@ To run it on a server for several people, see *Workstation or server* below. For
 
 ## What it does
 
-* **Discovery (free):** crt.sh (retry/backoff), CertSpotter, HackerTarget and urlscan.io need no key; the Wayback Machine is available but off (slow). AlienVault OTX needs a free API key. Anubis is still listed but off, because its service now blocks automated clients. Every source is listed in [docs/RULES.md](docs/RULES.md#data-sources).
+* **Discovery (free):** crt.sh (retry/backoff), CertSpotter, HackerTarget, urlscan.io and ip.thc.org need no key; the Wayback Machine is available but off (slow). AlienVault OTX needs a free API key. Anubis is still listed but off, because its service now blocks automated clients. Every source is listed in [docs/RULES.md](docs/RULES.md#data-sources).
 * **Resolution:** A/AAAA/CNAME/NS/MX/TXT via 1.1.1.1 and 8.8.8.8, bounded workers and a global QPS cap, wildcard-DNS detection.
 * **Ownership:** Team Cymru DNS WHOIS (RIPEstat fallback) maps IPs to ASN/organisation; addresses outside your expected ASNs/keywords raise a HIGH finding.
 * **Exposure intelligence:** open ports, CVEs and risk tags per IP, and domain expiry (see below).

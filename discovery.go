@@ -40,7 +40,7 @@ type Discovery struct {
 }
 
 // sourceURLs holds the base URLs of the passive sources (overridable in tests).
-type sourceURLs struct{ crtsh, hackertarget, otx, anubis, certspotter, urlscan, wayback string }
+type sourceURLs struct{ crtsh, hackertarget, otx, anubis, certspotter, urlscan, wayback, thc string }
 
 // Discoverer queries the passive subdomain sources (crt.sh, HackerTarget, OTX, Anubis and the optional keyed ones) and merges the results.
 type Discoverer struct {
@@ -67,6 +67,7 @@ func NewDiscoverer(cfg *Config, log *slog.Logger) *Discoverer {
 		certspotter:  "https://api.certspotter.com/v1/issuances",
 		urlscan:      "https://urlscan.io/api/v1/search/",
 		wayback:      "https://web.archive.org/cdx/search/cdx",
+		thc:          "https://ip.thc.org/api/v1/lookup/subdomains",
 	}}
 }
 
@@ -112,6 +113,7 @@ func retry(ctx context.Context, log *slog.Logger, name string, attempts int, bas
 type reqOpts struct {
 	header  map[string]string
 	refused func(status int, body []byte) error
+	body    []byte // a JSON request body; the request is then a POST
 }
 
 // getWithRetry GETs u and passes the body to handle, retrying transient failures (timeouts, 429, 5xx, truncated bodies) with exponential backoff and jitter.
@@ -119,12 +121,19 @@ func (d *Discoverer) getWithRetry(ctx context.Context, name, u string, opts *req
 	return retry(ctx, d.log, name, attempts, base, ceiling, func(ctx context.Context) (bool, error) {
 		cctx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
-		req, err := http.NewRequestWithContext(cctx, http.MethodGet, u, nil)
+		method, body := http.MethodGet, io.Reader(nil)
+		if opts != nil && opts.body != nil {
+			method, body = http.MethodPost, bytes.NewReader(opts.body) // a fresh reader for every attempt
+		}
+		req, err := http.NewRequestWithContext(cctx, method, u, body)
 		if err != nil {
 			return false, err
 		}
 		req.Header.Set("User-Agent", d.cfg.Sources.UserAgent)
 		req.Header.Set("Accept", "application/json, text/plain, */*")
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
 		if opts != nil {
 			for k, v := range opts.header {
 				req.Header.Set(k, v)
@@ -202,6 +211,9 @@ func (d *Discoverer) Discover(ctx context.Context, root string) *Discovery {
 	}
 	if sc.Wayback.Enabled {
 		jobs = append(jobs, job{"wayback", hostsOnly(d.fetchWayback)})
+	}
+	if sc.THC.Enabled {
+		jobs = append(jobs, job{"thc", hostsOnly(d.fetchTHC)})
 	}
 
 	if d.enr != nil {

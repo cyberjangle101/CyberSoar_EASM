@@ -259,6 +259,7 @@ type SourcesCfg struct {
 	CertSpotter Toggle // a second Certificate Transparency search
 	URLScan     Toggle // names seen in public urlscan.io scans
 	Wayback     Toggle // names in Wayback Machine archived URLs
+	THC         Toggle // names in the ip.thc.org dataset
 	UserAgent   string
 }
 

@@ -259,6 +259,63 @@ func TestNewDiscoverySources(t *testing.T) {
 	}
 }
 
+// ip.thc.org is asked with a JSON POST and paged with next_page_state until it returns no
+// token; a failing later page keeps what the earlier pages gave.
+func TestTHCSource(t *testing.T) {
+	old := thcPagePause
+	thcPagePause = 0
+	t.Cleanup(func() { thcPagePause = old })
+
+	var calls int
+	var fail bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		var req thcRequest
+		if r.Method != http.MethodPost || r.Header.Get("Content-Type") != "application/json" || json.NewDecoder(r.Body).Decode(&req) != nil ||
+			req.Domain != "example.test" || req.Limit != thcPageSize {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		switch req.PageState {
+		case "":
+			_, _ = io.WriteString(w, `{"comment":"Free Service!","domains":[{"domain":"a.example.test","last_seen_on":"2026-11-07"},{"domain":"other.test"}],"next_page_state":"p2"}`)
+		case "p2":
+			if fail {
+				http.Error(w, "nope", http.StatusBadRequest)
+				return
+			}
+			_, _ = io.WriteString(w, `{"domains":[{"domain":"b.example.test"}],"next_page_state":""}`)
+		default:
+			http.Error(w, "unexpected page", http.StatusBadRequest)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	cfg := DefaultSettings()
+	cfg.CrtShEnabled, cfg.HackerTargetEnabled, cfg.CertSpotterEnabled, cfg.URLScanEnabled, cfg.THCEnabled = false, false, false, false, true
+	d := NewDiscoverer(cfg.Runtime(""), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	d.health = NewHealthBoard()
+	d.urls = sourceURLs{thc: srv.URL}
+	out := d.Discover(testCtx(t), "example.test")
+	for _, h := range []string{"a.example.test", "b.example.test"} {
+		if _, ok := out.Hosts[h]; !ok {
+			t.Errorf("missing %s; got %v", h, out.Hosts)
+		}
+	}
+	if _, ok := out.Hosts["other.test"]; ok {
+		t.Error("an out-of-scope name was kept")
+	}
+	if calls != 2 || !out.OK["thc"] {
+		t.Errorf("calls %d, ok %v; want 2 pages and success", calls, out.OK["thc"])
+	}
+
+	calls, fail = 0, true
+	out = d.Discover(testCtx(t), "example.test")
+	if _, ok := out.Hosts["a.example.test"]; !ok || !out.OK["thc"] {
+		t.Errorf("a failing second page should keep the first page's names: %v", out.Hosts)
+	}
+}
+
 // A resolver that cannot be reached falls back to DNS-over-HTTPS and still gets the real answer.
 func TestDNSOverHTTPSFallback(t *testing.T) {
 	var asked int

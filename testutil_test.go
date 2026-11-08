@@ -508,7 +508,7 @@ func newHarness(t testing.TB) *harness {
 	st.ASNBGPViewFallback = false
 	st.AnubisEnabled = true // off by default (the live service blocks bots); the fake one feeds most scan tests
 	// Keyless sources added in v1.9.8 would reach the real internet; tests that need them switch them on against fakes.
-	st.CertSpotterEnabled, st.URLScanEnabled, st.WaybackEnabled, st.DNSOverHTTPS = false, false, false, false
+	st.CertSpotterEnabled, st.URLScanEnabled, st.WaybackEnabled, st.THCEnabled, st.DNSOverHTTPS = false, false, false, false, false
 	st.ISCEnabled, st.EPSSEnabled, st.KEVEnabled, st.TorExitEnabled, st.CloudRangesEnabled, st.TakeoverFeedEnabled = false, false, false, false, false, false
 	st.DigestFrequency = "off"
 	st.CrtShMaxAttempts = 2
