@@ -111,7 +111,7 @@ Domains are scanned in parallel (default 2 at a time, **Settings → Domains sca
 Notes:
 
 * Keys are entered in **Settings**, stored AES-256-GCM encrypted, never displayed again, and scrubbed from logs and error messages. A rejected key stops further requests to that service for the rest of the scan.
-* **These services receive the IP addresses (and, for Shodan DNS, VirusTotal and OTX, the domain names) you monitor.** The agent never scans or connects to your hosts itself. Each source is opt-in or can be switched off.
+* **These services receive the IP addresses (and, for Shodan DNS, VirusTotal and OTX, the domain names) you monitor.** These lookups never touch your hosts: the agent connects to them only when you switch on active checks (Settings → Active checks, off by default). Each source is opt-in or can be switched off.
 * Findings from these sources come from third-party scan data that may be days old, and CVEs are inferred from service banners (back-ported fixes can make some false positives). Treat them as leads to verify.
 * Addresses tagged `cdn`, and addresses outside an entity's expected ASNs, are inventoried but do **not** raise exposure findings, because they are not yours to fix.
 * Answers are cached for 24 hours and capped per scan (default 250 IPs per source) so large estates are covered over several scans. A finding is auto-resolved only when a fresh answer was obtained; an outage or stale cache never closes one.
