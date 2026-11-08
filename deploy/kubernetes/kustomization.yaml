@@ -19,8 +19,8 @@ resources:
 images:
   - name: easm-agent
     newName: ghcr.io/cyberjangle101/easm-agent
-    newTag: "1.9.20"
-    digest: sha256:465bc0c61256eb8060a9d2f3d1a9f0fd84e2f1df54d9824626dcaae773ea808d
+    newTag: "1.9.21"
+    digest: sha256:b0d82c91adab9f25d288651079cc297ac7194c9b09d38f5621a16614fa8bbbfd
 labels:
   - pairs:
       app.kubernetes.io/name: easm-agent
