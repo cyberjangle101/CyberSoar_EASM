@@ -15,12 +15,40 @@ import (
 )
 
 func TestBrandWords(t *testing.T) {
-	got := brandWords("acme.co.uk", []string{" Widget ", "ab", "acme", "has-hyphen", "Gizmo9"})
-	if want := []string{"acme", "widget", "gizmo9"}; !slices.Equal(got, want) {
+	got := brandWords("acme.co.uk", []string{" Widget ", "ab", "acme", "has-hyphen", "Gizmo9", "a-b-c", "-bad"})
+	if want := []string{"acme", "widget", "hashyphen", "gizmo9"}; !slices.Equal(got, want) {
 		t.Errorf("brandWords = %v, want %v", got, want)
 	}
 	if got := brandWords("abc.com", nil); len(got) != 0 {
 		t.Errorf("a three-letter name is too short to watch: %v", got)
+	}
+	// A hyphenated organisation name is watched, not silently skipped: matched without the
+	// hyphen, and searched for in certificate logs under both spellings.
+	words, searches := brandTerms("acme-corp.com", nil)
+	if !slices.Equal(words, []string{"acmecorp"}) || !slices.Equal(searches, []string{"acmecorp", "acme-corp"}) {
+		t.Errorf("brandTerms(acme-corp.com) = %v, %v", words, searches)
+	}
+	if w, _, ok := brandMatch("acme-corp-login.com", words); !ok || w != "acmecorp" {
+		t.Errorf("acme-corp-login.com should match acmecorp")
+	}
+}
+
+// The scan of a hyphenated domain finds a look-alike that keeps the hyphen.
+func TestBrandWatchHyphenatedName(t *testing.T) {
+	h := newHarness(t)
+	h.dns.add(t, "acme-corp.test. 60 IN A 203.0.113.10")
+	h.dns.add(t, "acme-corp.test. 60 IN NS ns1.acme-corp.test.")
+	st, _ := h.store.LoadSettings()
+	st.LookalikeEnabled, st.LookalikeMax = true, 10
+	h.saveSettings(st)
+	h.src.addRecentCert("acme-corp-login.test")
+	h.dns.add(t, "acme-corp-login.test. 60 IN NS ns.evil.test.")
+	h.dns.add(t, "acme-corp-login.test. 60 IN MX 10 mx.acme-corp-login.test.")
+	h.dns.add(t, "acme-corp-login.test. 60 IN A 203.0.113.99")
+	tg := h.addTarget("acme-corp.test", "")
+	h.scan(tg.ID)
+	if _, ok := findingKeys(t, h, "lookalike-domain", "open")["lookalike:acme-corp.test:acme-corp-login.test"]; !ok {
+		t.Fatal("the hyphenated brand look-alike was not reported")
 	}
 }
 

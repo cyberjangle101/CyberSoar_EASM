@@ -215,7 +215,8 @@ func TestSearchPageAndTheme(t *testing.T) {
 	}
 
 	// every signed-in page has the sidebar and the search box; the theme follows the system until chosen
-	if _, body, _ = b.get("/findings"); !strings.Contains(body, `class="side"`) || !strings.Contains(body, `action="/search"`) || strings.Contains(body, "data-theme=") {
+	if _, body, _ = b.get("/findings"); !strings.Contains(body, `class="side"`) || !strings.Contains(body, `action="/search"`) || strings.Contains(body, "data-theme=") ||
+		!strings.Contains(body, `name="color-scheme" content="light dark"`) {
 		t.Fatalf("layout: %.300s", body)
 	}
 	c, _, resp := b.post("/account/theme", url.Values{"theme": {"dark"}, "next": {"/findings?status=all"}})
@@ -228,8 +229,10 @@ func TestSearchPageAndTheme(t *testing.T) {
 	if c, _, resp = b.post("/account/theme", url.Values{"theme": {"light"}, "next": {"//evil.example/"}}); c != 303 || resp.Header.Get("Location") != "/" {
 		t.Fatalf("off-site next: %s", resp.Header.Get("Location"))
 	}
-	if _, body, _ = b.get("/"); !strings.Contains(body, `data-theme="light"`) {
-		t.Fatal("light theme not applied")
+	// "only light": browsers with automatic dark mode for web pages (an Edge and Chrome flag) would
+	// otherwise repaint a page that chose light with their own colours.
+	if _, body, _ = b.get("/"); !strings.Contains(body, `data-theme="light"`) || !strings.Contains(body, `name="color-scheme" content="only light"`) {
+		t.Fatal("light theme not applied, or not protected from automatic dark mode")
 	}
 	if c, _, _ = b.postRaw("/account/theme", url.Values{"theme": {"dark"}}); c != 403 {
 		t.Fatalf("theme without CSRF: %d", c)
