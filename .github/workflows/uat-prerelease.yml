@@ -19,7 +19,7 @@ concurrency:
 
 env:
   VERSION: 0.0.0-uat
-  PREVIOUS: v1.9.19 # the release users upgrade from
+  PREVIOUS: v1.9.20 # the release users upgrade from
 
 jobs:
   windows-server:
