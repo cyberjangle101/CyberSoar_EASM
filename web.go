@@ -251,6 +251,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /targets/{id}/delete", s.auth(permAdmin, s.targetDelete))
 
 	mux.HandleFunc("GET /findings", s.auth(permView, s.findings))
+	mux.HandleFunc("POST /findings/bulk", s.auth(permTriage, s.findingsBulk))
 	mux.HandleFunc("POST /findings/{id}/ack", s.auth(permTriage, s.findingAccept))
 	mux.HandleFunc("POST /findings/{id}/reopen", s.auth(permTriage, s.findingReopen))
 	mux.HandleFunc("POST /findings/{id}/severity", s.auth(permTriage, s.findingSeverity))
@@ -1245,6 +1246,29 @@ func (s *Server) findings(w http.ResponseWriter, r *http.Request, sess *Session)
 	} else {
 		trust = ""
 	}
+	// Type: the finding titles present after the other filters, so a whole kind (say every
+	// look-alike domain) can be listed, selected and triaged in one go.
+	types, kind := findingTypes(list), q.Get("type")
+	if kind != "" {
+		// A type with nothing left (say right after its findings were all accepted) stays chosen
+		// and lists nothing, rather than falling back to every finding, where "tick all" would
+		// then reach findings the user never meant to touch.
+		kind = clip(kind, 200)
+		known := false
+		for _, t := range types {
+			known = known || t.Title == kind
+		}
+		if !known {
+			types = append(types, FindingType{Title: kind})
+		}
+		var f []Finding
+		for _, x := range list {
+			if describeFinding(x).Title == kind {
+				f = append(f, x)
+			}
+		}
+		list = f
+	}
 	grouped := q.Get("group") == "host"
 	perHost := map[string]int{}
 	for _, f := range list {
@@ -1270,7 +1294,7 @@ func (s *Server) findings(w http.ResponseWriter, r *http.Request, sess *Session)
 	}
 	data := map[string]any{
 		"Title": "Findings", "Nav": "findings", "Findings": list, "Targets": names, "Target": root, "Status": status, "Severity": sev, "Trust": trust,
-		"Next": r.URL.RequestURI(), "Grouped": grouped, "PerHost": perHost,
+		"Next": r.URL.RequestURI(), "Grouped": grouped, "PerHost": perHost, "Types": types, "Type": kind, "BulkMax": bulkMax,
 	}
 	// One domain chosen: this is that domain's page, with its scan controls, settings and inventory.
 	if root != "" {

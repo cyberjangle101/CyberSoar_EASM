@@ -100,3 +100,18 @@ document.addEventListener('submit', function (e) {
   const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
   inp.value = dark ? 'light' : 'dark';
 });
+// Findings: the header box ticks every finding shown, and the bulk bar counts what is ticked.
+(function () {
+  const all = document.querySelector('[data-pick-all]');
+  const out = document.querySelector('[data-pick-count]');
+  if (!all && !out) { return; }
+  const boxes = function () { return document.querySelectorAll('input[name="id"][form="bulk"]'); };
+  const count = function () {
+    const n = Array.prototype.filter.call(boxes(), function (b) { return b.checked; }).length;
+    if (out) { out.textContent = n ? n + ' ticked.' : ''; }
+    if (all) { all.checked = n > 0 && n === boxes().length; all.indeterminate = n > 0 && n < boxes().length; }
+  };
+  if (all) { all.addEventListener('change', function () { boxes().forEach(function (b) { b.checked = all.checked; }); count(); }); }
+  document.addEventListener('change', function (e) { if (e.target && e.target.matches && e.target.matches('input[name="id"][form="bulk"]')) { count(); } });
+  count();
+})();

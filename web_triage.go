@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -76,6 +77,108 @@ func (s *Server) findingAccept(w http.ResponseWriter, r *http.Request, sess *Ses
 	}
 	s.audit(sess, r, "finding.accept", fmt.Sprintf("%s %s", f.Kind, f.Host), "reason: "+r.PostFormValue("reason")+"; review: "+r.PostFormValue("until"))
 	s.flash(sess, "good", "Risk accepted. The finding stays on record and will not alert"+untilNote(r.PostFormValue("until"))+".")
+	back(w, r)
+}
+
+// bulkMax is the most findings one bulk action changes, so a stray "select all" on a huge
+// list cannot rewrite the whole register in one click.
+const bulkMax = 500
+
+// FindingType is one entry of the findings page's Type filter.
+type FindingType struct {
+	Title string
+	N     int
+}
+
+// findingTypes lists the finding titles in a list with their counts, alphabetically.
+func findingTypes(list []Finding) []FindingType {
+	n := map[string]int{}
+	for _, f := range list {
+		n[describeFinding(f).Title]++
+	}
+	out := make([]FindingType, 0, len(n))
+	for t, c := range n {
+		out = append(out, FindingType{Title: t, N: c})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Title < out[j].Title })
+	return out
+}
+
+// findingsBulk accepts the risk of (with one reason and optional review date), or reopens,
+// the findings ticked on the findings page. Findings not in the right state are skipped and
+// counted; each change is audited like the single-finding action, marked as part of a bulk action.
+func (s *Server) findingsBulk(w http.ResponseWriter, r *http.Request, sess *Session) {
+	if err := r.ParseForm(); err != nil {
+		s.flash(sess, "bad", "Nothing changed: the form could not be read.")
+		back(w, r)
+		return
+	}
+	action := r.PostFormValue("action")
+	if action != "accept" && action != "reopen" {
+		s.flash(sess, "bad", "Choose what to do with the selected findings.")
+		back(w, r)
+		return
+	}
+	want := map[int64]bool{}
+	for _, v := range r.PostForm["id"] {
+		if id, err := strconv.ParseInt(v, 10, 64); err == nil && id > 0 {
+			want[id] = true
+		}
+	}
+	if len(want) == 0 {
+		s.flash(sess, "bad", "Nothing changed: tick the findings first.")
+		back(w, r)
+		return
+	}
+	if len(want) > bulkMax {
+		s.flash(sess, "bad", fmt.Sprintf("Nothing changed: at most %d findings at a time. Narrow the list with the filters.", bulkMax))
+		back(w, r)
+		return
+	}
+	reason, until := strings.TrimSpace(r.PostFormValue("reason")), strings.TrimSpace(r.PostFormValue("until"))
+	all, err := s.store.ListFindings("", "")
+	if err != nil {
+		s.serverError(w, r, sess, err)
+		return
+	}
+	done, skipped := 0, len(want)
+	note := fmt.Sprintf("bulk action on %d selected", len(want))
+	for _, f := range all {
+		if !want[f.ID] {
+			continue
+		}
+		what := fmt.Sprintf("%s %s", f.Kind, f.Host)
+		switch {
+		case action == "accept" && f.Status == "open":
+			if err := s.store.AcceptRisk(f.ID, sess.Username, reason, until); err != nil {
+				if done == 0 { // the reason or date is wrong for all of them alike: say so, change nothing more
+					s.flash(sess, "bad", "Nothing changed: "+err.Error()+".")
+					back(w, r)
+					return
+				}
+				continue
+			}
+			s.audit(sess, r, "finding.accept", what, "reason: "+reason+"; review: "+until+"; "+note)
+		case action == "reopen" && f.Status == "ack":
+			if err := s.store.ReopenFinding(f.ID); err != nil {
+				continue
+			}
+			s.audit(sess, r, "finding.reopen", what, "was accepted by "+f.AckBy+": "+f.AckReason+"; "+note)
+		default:
+			continue
+		}
+		done++
+		skipped--
+	}
+	verb := map[string]string{"accept": "Risk accepted for", "reopen": "Reopened"}[action]
+	msg := fmt.Sprintf("%s %d finding%s.", verb, done, ifStr(done != 1, "s"))
+	if skipped > 0 {
+		msg += fmt.Sprintf(" %d skipped (%s).", skipped, map[string]string{"accept": "not open", "reopen": "not accepted"}[action])
+	}
+	if action == "accept" && done > 0 {
+		msg += " They stay on record and will not alert" + untilNote(until) + "."
+	}
+	s.flash(sess, map[bool]string{true: "good", false: "warn"}[done > 0], msg)
 	back(w, r)
 }
 

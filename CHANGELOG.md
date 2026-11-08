@@ -6,6 +6,7 @@ What changed in each release of CyberSoar EASM (called EASM Agent before 1.9.19)
 
 **Unreleased:**
 
+* **Dismiss many findings at once.** The findings page has a tick box on each finding and an action bar above the list: *Accept risk* (one reason and optional review date for all of them) or *Reopen*, for up to 500 at a time. A new *Type* filter lists one kind of finding (for example every *A look-alike of your domain is registered*), and *Tick all* selects just those. Findings not in the right state are skipped and counted, each change is in the audit log as its own entry, and viewers do not see the controls. Once a type has nothing left, the filter stays chosen and lists nothing, so *Tick all* cannot reach other findings.
 * **Findings on phones.** On a narrow screen each finding is now a card with labelled sections (source, risk, fix, status and actions) instead of a table several screens wide that had to be scrolled sideways.
 * **Back to following the system theme.** My account → *Appearance* offers *Follow system*, *Light* and *Dark*. Before, once you used the light/dark button the page kept that choice and could not follow the device setting again without clearing cookies.
 * **Release and CI downloads retry.** Tool downloads in the workflows (golangci-lint, Gitleaks, kubeconform, kind, PSScriptAnalyzer) retry on a temporary error such as a GitHub 503, which had failed a container check before.
