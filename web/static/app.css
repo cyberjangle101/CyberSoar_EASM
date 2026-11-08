@@ -189,6 +189,12 @@ details > summary { cursor: pointer; font-weight: 600; margin: 4px 0 8px; color:
 /* findings table: long explanatory text wraps in readable columns */
 td.prose { min-width: 170px; max-width: 270px; line-height: 1.4; }
 td.prose strong { display: block; margin-bottom: 2px; }
+/* bulk triage on the findings page */
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.bulkbar { border: 1px solid var(--line); border-radius: var(--radius); background: var(--muted-bg); padding: 10px 14px; margin: 0 0 14px; }
+.bulkbar p { margin: 0 0 8px; }
+.bulkrow { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.bulkrow label { margin: 0; } .bulkrow label.grow { flex: 1 1 260px; } .bulkrow select { width: auto; }.pick, td.pick { width: 1%; padding-right: 4px; } .pick input { width: 18px; height: 18px; margin: 0; }
 /* on phones each finding becomes a stacked card instead of a table several screens wide */
 @media (max-width: 640px) {
   table.ftable, table.ftable tbody, table.ftable tr, table.ftable td, table.ftable tr.group th { display: block; width: auto; }

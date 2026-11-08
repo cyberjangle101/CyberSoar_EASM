@@ -14,16 +14,28 @@
   <label>Corroboration <select name="trust"><option value="">Any</option>
     <option value="trusted" {{if eq .Trust "trusted"}}selected{{end}}>Trusted or first-hand</option>
     <option value="unconfirmed" {{if eq .Trust "unconfirmed"}}selected{{end}}>Unconfirmed or disputed</option></select></label>
+  {{if .Types}}<label>Type <select name="type"><option value="">Any</option>{{range .Types}}<option value="{{.Title}}" {{if eq .Title $.Type}}selected{{end}}>{{.Title}} ({{.N}})</option>{{end}}</select></label>{{end}}
   <label class="check"><input type="checkbox" name="group" value="host" {{if .Grouped}}checked{{end}}> Group by host</label>
   <button class="btn" type="submit">Apply</button>
 </form>
 <section class="card" id="findings">
   {{if .T}}<h2>Findings <span class="muted small">({{len .Findings}})</span></h2>{{end}}
   {{if .Findings}}
+  {{if .CanTriage}}<form method="post" action="/findings/bulk" id="bulk" class="bulkbar" data-confirm="Apply this to every ticked finding?"> {{/* nosemgrep: python.django.security.django-no-csrf-token.django-no-csrf-token -- Go template: the csrf hidden field is checked by s.auth */}}
+    <input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="next" value="{{.Next}}">
+    <p class="small muted">Tick findings below, then act on them together. Use <strong>Type</strong> above to list one kind at a time. At most {{.BulkMax}} at once; each change is in the audit log. <span data-pick-count aria-live="polite"></span></p>
+    <div class="bulkrow">
+      <label class="check"><input type="checkbox" data-pick-all> Tick all {{len .Findings}} shown</label>
+      <label>Action <select name="action"><option value="accept">Accept risk</option><option value="reopen">Reopen (undo acceptance)</option></select></label>
+      <label class="grow">Reason (for accept) <input name="reason" maxlength="500" placeholder="e.g. unrelated company, not a look-alike"></label>
+      <label>Review on <input type="date" name="until"></label>
+      <button class="btn primary" type="submit">Apply to ticked</button>
+    </div>
+  </form>{{end}}
   <div class="scroll"><table class="ftable">
-    <thead><tr><th>Severity</th><th>Finding</th><th>Source of evidence</th><th>Risk</th><th>Recommended fix</th><th>First seen</th><th>Status</th><th></th></tr></thead>
-    <tbody>{{$prev := ""}}{{range .Findings}}{{if and $.Grouped (ne .Host $prev)}}<tr class="group"><th colspan="8" class="mono">{{.Host}} <span class="muted small">{{index $.PerHost .Host}} finding(s)</span></th></tr>{{end}}{{$prev = .Host}}<tr class="{{if ne .Status "open"}}dim{{end}}">
-      {{$i := finfo .}}<td><span class="badge {{sevClass .Severity}}">{{upper .Severity}}</span></td>
+    <thead><tr>{{if .CanTriage}}<th class="pick"><span class="visually-hidden">Tick</span></th>{{end}}<th>Severity</th><th>Finding</th><th>Source of evidence</th><th>Risk</th><th>Recommended fix</th><th>First seen</th><th>Status</th><th></th></tr></thead>
+    <tbody>{{$prev := ""}}{{range .Findings}}{{if and $.Grouped (ne .Host $prev)}}<tr class="group"><th colspan="{{if $.CanTriage}}9{{else}}8{{end}}" class="mono">{{.Host}} <span class="muted small">{{index $.PerHost .Host}} finding(s)</span></th></tr>{{end}}{{$prev = .Host}}<tr class="{{if ne .Status "open"}}dim{{end}}">
+      {{$i := finfo .}}{{if $.CanTriage}}<td class="pick"><input type="checkbox" name="id" value="{{.ID}}" form="bulk" aria-label="Tick {{$i.Title}} on {{.Host}}"></td>{{end}}<td><span class="badge {{sevClass .Severity}}">{{upper .Severity}}</span></td>
       <td class="prose"><strong>{{$i.Title}}</strong>{{template "trustbadge" .}}<div class="mono">{{.Host}}</div>{{if not $.T}}<div class="small muted">{{.Root}}</div>{{end}}<div class="small">{{.Detail}}</div></td>
       <td class="prose small" data-label="Source of evidence">{{$i.Source}}<div><a class="evlink" href="/findings/{{.ID}}/evidence">View evidence ›</a></div></td><td class="prose small" data-label="Risk">{{$i.Risk}}</td><td class="prose small" data-label="Recommended fix">{{$i.Solution}}</td><td data-label="First seen">{{ts .FirstSeen}}</td><td data-label="Status">{{.Status}}</td>
       <td class="actions">{{if $.CanTriage}}{{template "triage" (tctx . $.CSRF $.Next $.IsAdmin)}}{{end}}</td>
