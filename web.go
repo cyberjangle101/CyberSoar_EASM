@@ -1294,7 +1294,7 @@ func (s *Server) findings(w http.ResponseWriter, r *http.Request, sess *Session)
 
 var eventKinds = []string{"subdomain", "cert", "dns-a", "dns-aaaa", "dns-cname", "dns-ns", "dns-mx", "dns-txt",
 	"dangling-cname", "dangling-ns", "dangling-mx", "dns-wildcard", "domain-unlocked", "ct-unauthorized-ca", "shadow-it-ct-subdomain",
-	"asn-unexpected", "private-ip", "email-auth", "dns-removed", "host-gone", "service-removed", "finding-resolved", "web-service", "related-domain", "lookalike-domain", "leaked-credentials", "repo-exposure", "cloud-service"}
+	"asn-unexpected", "private-ip", "email-auth", "dns-removed", "host-gone", "service-removed", "finding-resolved", "web-service", "related-domain", "lookalike-domain", "archived-exposure", "leaked-credentials", "repo-exposure", "cloud-service"}
 
 // events renders the change log.
 func (s *Server) events(w http.ResponseWriter, r *http.Request, sess *Session) {
@@ -1550,7 +1550,7 @@ func parseSettingsForm(r *http.Request, cur Settings) (Settings, error) {
 	s.ASNEnabled, s.ASNBGPViewFallback = on("asn_enabled"), on("asn_bgpview_fallback")
 	s.SMTPEnabled, s.SMTPInsecureSkipVerify = on("smtp_enabled"), on("smtp_insecure_skip_verify")
 	s.InternetDBEnabled, s.RDAPEnabled = on("internetdb_enabled"), on("rdap_enabled")
-	s.CertSpotterEnabled, s.URLScanEnabled, s.WaybackEnabled = on("certspotter_enabled"), on("urlscan_enabled"), on("wayback_enabled")
+	s.CertSpotterEnabled, s.URLScanEnabled, s.WaybackEnabled, s.THCEnabled = on("certspotter_enabled"), on("urlscan_enabled"), on("wayback_enabled"), on("thc_enabled")
 	s.DNSOverHTTPS, s.ISCEnabled, s.EPSSEnabled, s.KEVEnabled = on("dns_over_https"), on("isc_enabled"), on("epss_enabled"), on("kev_enabled")
 	s.TorExitEnabled, s.CloudRangesEnabled, s.TakeoverFeedEnabled = on("tor_exit_enabled"), on("cloud_ranges_enabled"), on("takeover_feed_enabled")
 	s.ShodanEnabled, s.ShodanDomainLookup = on("shodan_enabled"), on("shodan_domain_lookup")
@@ -1558,6 +1558,9 @@ func parseSettingsForm(r *http.Request, cur Settings) (Settings, error) {
 	s.HIBPEnabled, s.GitHubEnabled = on("hibp_enabled"), on("github_enabled")
 	s.LookalikeEnabled, s.RelatedEnabled, s.ReverseIPEnabled = on("lookalike_enabled"), on("related_enabled"), on("reverseip_enabled")
 	s.LookalikeProbe, s.DependencyConfusion, s.DNSBLEnabled = on("lookalike_probe"), on("dependency_confusion"), on("dnsbl_enabled")
+	s.LookalikeBrandCT, s.NRDFeedURL = on("lookalike_brand_ct"), str("nrd_feed_url")
+	s.LookalikeBrandWords = splitList(r.PostFormValue("lookalike_brand_words"), true)
+	s.ArchiveExposureEnabled = on("archive_exposure_enabled")
 	if err := s.Normalize(); err != nil {
 		return cur, err
 	}
@@ -1573,7 +1576,7 @@ func (s *Server) settingsView(w http.ResponseWriter, r *http.Request, sess *Sess
 	}
 	s.render(w, r, sess, "settings", http.StatusOK, map[string]any{
 		"Title": "Settings", "Nav": "settings", "S": st, "HasPassword": s.eng.HasSMTPPassword(),
-		"HasShodan": s.eng.HasSecret(secretShodan), "HasCensys": s.eng.HasSecret(secretCensys), "HasVT": s.eng.HasSecret(secretVT), "HasHIBP": s.eng.HasSecret(secretHIBP), "HasGitHub": s.eng.HasSecret(secretGitHub), "HasOTX": s.eng.HasSecret(secretOTX),
+		"HasShodan": s.eng.HasSecret(secretShodan), "HasCensys": s.eng.HasSecret(secretCensys), "HasVT": s.eng.HasSecret(secretVT), "HasHIBP": s.eng.HasSecret(secretHIBP), "HasGitHub": s.eng.HasSecret(secretGitHub), "HasOTX": s.eng.HasSecret(secretOTX), "HasNRD": s.eng.HasSecret(secretNRD),
 		"Resolvers": strings.Join(st.DNSResolvers, "\n"), "Recipients": strings.Join(st.SMTPTo, "\n"),
 		"Listen": s.listenView(), "Cert": s.certView(), "Backup": s.backupView(),
 		"MCP": s.mcpView(r, st),
@@ -1653,6 +1656,7 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request, sess *Sess
 		{secretHIBP, "hibp_key", "Have I Been Pwned", next.HIBPEnabled},
 		{secretGitHub, "github_token", "GitHub", next.GitHubEnabled},
 		{secretOTX, "otx_key", "AlienVault OTX", next.OTXEnabled},
+		{secretNRD, "nrd_feed_key", "Newly registered domains feed", false}, // optional: some feeds put the token in the address
 	} {
 		val, wipe := strings.TrimSpace(r.PostFormValue(k.field)), r.PostFormValue(k.field+"_clear") == "on"
 		if val != "" && !apiKeyRe.MatchString(val) {
@@ -1718,6 +1722,7 @@ var threatIntelChecks = []struct {
 	{"look-alike site clones", "phishing-clone", func(s Settings) bool { return s.LookalikeEnabled && s.LookalikeProbe }},
 	{"dependency confusion", "dependency-confusion", func(s Settings) bool { return s.DependencyConfusion }},
 	{"public code", "repo-exposure", func(s Settings) bool { return s.GitHubEnabled }},
+	{"archived files", "archived-exposure", func(s Settings) bool { return s.ArchiveExposureEnabled }},
 	{"leaked accounts", "leaked-credentials", func(s Settings) bool { return s.HIBPEnabled }},
 }
 

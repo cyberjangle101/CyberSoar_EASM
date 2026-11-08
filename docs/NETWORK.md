@@ -45,7 +45,9 @@ These are web APIs and downloads. All are HTTPS on port 443 and all can go throu
 | `api.certspotter.com` | Second Certificate Transparency search | On | `certspotter_enabled` |
 | `api.hackertarget.com` | Host search; also reverse-IP lookups (Wider discovery) | Host search on; reverse IP off | `hackertarget_enabled`, `reverseip_enabled` |
 | `urlscan.io` | Names seen in public scans | On | `urlscan_enabled` |
+| `ip.thc.org` | Names from passive DNS, certificates and scans (`POST /api/v1/lookup/subdomains`, up to 10 pages two seconds apart) | On | `thc_enabled` |
 | `web.archive.org` | Names in archived URLs | Off | `wayback_enabled` |
+| `web.archive.org` | Archived files from your hosts that should not be public (one CDX query per domain, EASM-WEB-013) | Off | `archive_exposure_enabled` |
 | `otx.alienvault.com` | Passive DNS | Off; needs a free key | `otx_enabled` + OTX API key |
 | `jonlu.ca` | Anubis subdomain dataset | Off (the service blocks automated clients) | `anubis_enabled` |
 
@@ -55,6 +57,8 @@ These are web APIs and downloads. All are HTTPS on port 443 and all can go throu
 |---|---|---|---|
 | `stat.ripe.net` | ASN fallback when Team Cymru fails | On | `asn_bgpview_fallback` (and `asn_enabled`) |
 | `internetdb.shodan.io` | Open ports, CVEs and tags per IP | On | `internetdb_enabled` |
+| `crt.sh` | Brand watch: certificates issued in the last 30 days to names containing a brand word (`?q=%word%`), one query per word per scan | On when the look-alike check is on | `lookalike_brand_ct` (and `lookalike_enabled`, off by default) |
+| The newly registered domains feed address you enter | A daily list of new domains, matched locally against your brand words; downloaded about once a day | Off | `nrd_feed_url` (and `lookalike_enabled`) |
 | `rdap.org`, then the registry's own RDAP server it redirects to (for example `rdap.verisign.com` for `.com`) | Registrar and expiry date; whether a domain is registered | On | `rdap_enabled` |
 | `isc.sans.edu` | SANS Internet Storm Center reports per IP | On | `isc_enabled` |
 | `api.first.org` | EPSS scores (only CVE IDs are sent) | On | `epss_enabled` |

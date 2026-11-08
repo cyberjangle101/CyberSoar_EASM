@@ -61,7 +61,7 @@ func (e *Engine) RunHealthChecks(ctx context.Context) {
 		{"crtsh", "crt.sh", st.CrtShEnabled}, {"hackertarget", "api.hackertarget.com", st.HackerTargetEnabled},
 		{"otx", "otx.alienvault.com", st.OTXEnabled}, {"anubis", "jonlu.ca", st.AnubisEnabled},
 		{"certspotter", "api.certspotter.com", st.CertSpotterEnabled}, {"urlscan", "urlscan.io", st.URLScanEnabled},
-		{"wayback", "web.archive.org", st.WaybackEnabled},
+		{"wayback", "web.archive.org", st.WaybackEnabled}, {"thc", "ip.thc.org", st.THCEnabled}, {"archive-exposure", "web.archive.org", st.ArchiveExposureEnabled},
 		{feedKEV, "www.cisa.gov", st.KEVEnabled}, {feedTor, "check.torproject.org", st.TorExitEnabled},
 		{feedTakeover, "raw.githubusercontent.com", st.TakeoverFeedEnabled},
 		{feedAWS, "ip-ranges.amazonaws.com", st.CloudRangesEnabled}, {feedGCP, "www.gstatic.com", st.CloudRangesEnabled},

@@ -41,6 +41,10 @@ type extraData struct {
 
 	repos   []repoHit
 	repoErr bool
+
+	archive     []archiveFinding // archived files that should not be public (EASM-WEB-013)
+	archiveRan  bool
+	archiveKeys map[string]bool
 }
 
 type repoHit struct {
@@ -98,6 +102,19 @@ func (s *Scanner) gatherExtra(ctx context.Context, t *Target, disc *Discovery, r
 		}
 		d.repos = hits
 	}
+	if cfg.Discover.ArchiveExposure && s.disc != nil {
+		s.prog("Archived files", 91, "Wayback Machine")
+		urls, err := s.disc.ArchivedFiles(ctx, root)
+		s.health.Record("archive-exposure", "scan", err == nil, 0, err)
+		if err != nil {
+			s.log.Warn("archived-file check failed", "domain", root, "err", err)
+		} else {
+			d.archive, d.archiveRan, d.archiveKeys = archiveFindings(urls), true, map[string]bool{}
+			for _, a := range d.archive {
+				d.archiveKeys[a.Key] = true
+			}
+		}
+	}
 	return d
 }
 
@@ -116,6 +133,8 @@ func (s *Scanner) lookalikes(ctx context.Context, t *Target, results map[string]
 			own[o.Domain] = true
 		}
 	}
+	// Brand watch (brandwatch.go): names containing the brand, from certificate logs and an optional feed.
+	cands = append(cands, s.brandCandidates(ctx, root, cands, own)...)
 	me := lookOwner{root: root, ns: map[string]bool{}, ips: map[string]bool{}}
 	if hr := results[root]; hr != nil {
 		for _, n := range hr.Records["NS"] {
@@ -540,6 +559,9 @@ func (s *Scanner) applyExtra(tx *Tx, t *Target, d *extraData, now string, emit e
 		detail := fmt.Sprintf("The public repository github.com/%s mentions %s near the word %q (%s). Check whether it holds real secrets: %s", r.Repo, root, r.Term, strings.Join(r.Files, ", "), r.URL)
 		raise("repo:"+root+":"+r.Repo, "repo-exposure", "medium", root, detail, "GitHub code search")
 	}
+	for _, a := range d.archive {
+		raise(a.Key, "archived-exposure", a.Severity, a.Host, a.Detail, "Wayback Machine")
+	}
 	for _, g := range d.suggest {
 		isNew, err := tx.UpsertSuggestion(root, g.Domain, g.Via, g.Detail, now)
 		if err != nil {
@@ -573,6 +595,9 @@ func (d *extraData) reliableFor(kind, key string) bool {
 	if kind == "phishing-clone" {
 		p := strings.SplitN(key, ":", 3)
 		return d.lookRan && len(p) == 3 && (d.cloneChecked[p[2]] || d.lookChecked[p[2]] && !d.isHit(p[2])) // visited and no longer a copy, or gone
+	}
+	if kind == "archived-exposure" {
+		return d.archiveRan && !d.archiveKeys[key] // the archive answered and no longer holds such files (for example, it removed them on request)
 	}
 	// lookalike-tls-issued: an issued certificate stays issued, so it is closed by hand once looked into.
 	return false // breaches and public code do not "go away" in a way a search can prove

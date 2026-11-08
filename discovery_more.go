@@ -19,6 +19,7 @@ import (
 //     that never had a public certificate.
 //   - Wayback Machine: names in archived URLs, which surfaces forgotten hosts. Slow for
 //     large domains, so it is off unless switched on.
+//   - ip.thc.org: a large dataset of names from passive DNS, certificates and scans.
 
 // certSpotterPages caps CertSpotter paging: the unauthenticated limit is 100 requests an hour.
 const certSpotterPages = 5
@@ -51,6 +52,77 @@ func (d *Discoverer) fetchCertSpotter(ctx context.Context, root string) ([]strin
 		after = rows[len(rows)-1].ID
 	}
 	return hosts, nil
+}
+
+// ip.thc.org: a large free dataset of names (passive DNS, Certificate Transparency and
+// scans), no key. Its rate limit refills at one request every two seconds and it asks
+// callers not to abuse it, so a lookup is paced and capped at thcMaxPages pages.
+const (
+	thcPageSize = 1000
+	thcMaxPages = 10
+)
+
+// thcPagePause spaces the pages of one lookup (a variable so tests need not wait).
+var thcPagePause = 2 * time.Second
+
+func (d *Discoverer) fetchTHC(ctx context.Context, root string) ([]string, error) {
+	var hosts []string
+	state := ""
+	for page := 0; page < thcMaxPages; page++ {
+		if page > 0 {
+			select {
+			case <-ctx.Done():
+				return hosts, nil // keep what the earlier pages gave
+			case <-time.After(thcPagePause):
+			}
+		}
+		body, err := json.Marshal(thcRequest{Domain: root, PageState: state, Limit: thcPageSize})
+		if err != nil {
+			return nil, err
+		}
+		var got []string
+		var next string
+		err = d.getWithRetry(ctx, "thc", d.urls.thc, &reqOpts{body: body}, 3, 5*time.Second, time.Minute, 60*time.Second, func(r io.Reader) (err error) {
+			got, next, err = parseTHC(r)
+			return err
+		})
+		if err != nil {
+			if len(hosts) > 0 {
+				break // keep what the earlier pages gave
+			}
+			return nil, err
+		}
+		hosts = append(hosts, got...)
+		if next == "" || len(got) == 0 {
+			break
+		}
+		state = next
+	}
+	return hosts, nil
+}
+
+type thcRequest struct {
+	Domain    string `json:"domain"`
+	PageState string `json:"page_state"`
+	Limit     int    `json:"limit"`
+}
+
+// parseTHC reads one page of an ip.thc.org subdomain lookup and the token for the next page.
+func parseTHC(r io.Reader) ([]string, string, error) {
+	var res struct {
+		Domains []struct {
+			Domain string `json:"domain"`
+		} `json:"domains"`
+		Next string `json:"next_page_state"`
+	}
+	if err := json.NewDecoder(r).Decode(&res); err != nil {
+		return nil, "", err
+	}
+	hosts := make([]string, 0, len(res.Domains))
+	for _, x := range res.Domains {
+		hosts = append(hosts, x.Domain)
+	}
+	return hosts, res.Next, nil
 }
 
 type certSpotterRow struct {

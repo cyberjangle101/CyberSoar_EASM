@@ -187,6 +187,9 @@ func newFakeSources(t testing.TB) *fakeSources {
 			return
 		}
 		root := strings.TrimPrefix(r.URL.Query().Get("q"), "%.")
+		if w, ok := strings.CutPrefix(root, "%"); ok { // brand watch: %word% matches any name containing word
+			root = strings.TrimSuffix(w, "%")
+		}
 		var out []crtRow
 		for _, row := range f.crt {
 			if strings.Contains(row.NameValue, root) {
@@ -245,6 +248,14 @@ func (f *fakeSources) addCert(names ...string) {
 	f.crt = append(f.crt, crtRow{ID: int64(1000 + f.serial), IssuerCAID: 1, IssuerName: "C=US, O=Test CA", CommonName: names[0],
 		NameValue: strings.Join(names, "\n"), NotBefore: "2026-01-01T00:00:00", NotAfter: "2027-01-01T00:00:00",
 		SerialNumber: fmt.Sprintf("%040x", f.serial)})
+}
+
+// addRecentCert adds a certificate issued yesterday (inside the brand-watch window).
+func (f *fakeSources) addRecentCert(names ...string) {
+	f.addCert(names...)
+	f.mu.Lock()
+	f.crt[len(f.crt)-1].NotBefore = time.Now().UTC().Add(-24 * time.Hour).Format("2006-01-02T15:04:05")
+	f.mu.Unlock()
 }
 
 func (f *fakeSources) addAnubis(h ...string) {
@@ -508,7 +519,7 @@ func newHarness(t testing.TB) *harness {
 	st.ASNBGPViewFallback = false
 	st.AnubisEnabled = true // off by default (the live service blocks bots); the fake one feeds most scan tests
 	// Keyless sources added in v1.9.8 would reach the real internet; tests that need them switch them on against fakes.
-	st.CertSpotterEnabled, st.URLScanEnabled, st.WaybackEnabled, st.DNSOverHTTPS = false, false, false, false
+	st.CertSpotterEnabled, st.URLScanEnabled, st.WaybackEnabled, st.THCEnabled, st.DNSOverHTTPS = false, false, false, false, false
 	st.ISCEnabled, st.EPSSEnabled, st.KEVEnabled, st.TorExitEnabled, st.CloudRangesEnabled, st.TakeoverFeedEnabled = false, false, false, false, false, false
 	st.DigestFrequency = "off"
 	st.CrtShMaxAttempts = 2

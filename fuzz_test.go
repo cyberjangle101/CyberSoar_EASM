@@ -56,6 +56,7 @@ func FuzzParseHostLists(f *testing.F) {
 		_, _ = parseHackerTarget(strings.NewReader(body))
 		_, _ = parseOTX(strings.NewReader(body))
 		_, _ = parseAnubis(strings.NewReader(body))
+		_, _, _ = parseTHC(strings.NewReader(body))
 		for _, status := range []int{403, 429, 503} {
 			_ = otxRefused(status, []byte(body))
 			_ = anubisRefused(status, []byte(body))
