@@ -55,6 +55,8 @@ These are web APIs and downloads. All are HTTPS on port 443 and all can go throu
 |---|---|---|---|
 | `stat.ripe.net` | ASN fallback when Team Cymru fails | On | `asn_bgpview_fallback` (and `asn_enabled`) |
 | `internetdb.shodan.io` | Open ports, CVEs and tags per IP | On | `internetdb_enabled` |
+| `crt.sh` | Brand watch: certificates issued in the last 30 days to names containing a brand word (`?q=%word%`), one query per word per scan | On when the look-alike check is on | `lookalike_brand_ct` (and `lookalike_enabled`, off by default) |
+| The newly registered domains feed address you enter | A daily list of new domains, matched locally against your brand words; downloaded about once a day | Off | `nrd_feed_url` (and `lookalike_enabled`) |
 | `rdap.org`, then the registry's own RDAP server it redirects to (for example `rdap.verisign.com` for `.com`) | Registrar and expiry date; whether a domain is registered | On | `rdap_enabled` |
 | `isc.sans.edu` | SANS Internet Storm Center reports per IP | On | `isc_enabled` |
 | `api.first.org` | EPSS scores (only CVE IDs are sent) | On | `epss_enabled` |

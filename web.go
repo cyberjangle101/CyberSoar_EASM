@@ -1558,6 +1558,8 @@ func parseSettingsForm(r *http.Request, cur Settings) (Settings, error) {
 	s.HIBPEnabled, s.GitHubEnabled = on("hibp_enabled"), on("github_enabled")
 	s.LookalikeEnabled, s.RelatedEnabled, s.ReverseIPEnabled = on("lookalike_enabled"), on("related_enabled"), on("reverseip_enabled")
 	s.LookalikeProbe, s.DependencyConfusion, s.DNSBLEnabled = on("lookalike_probe"), on("dependency_confusion"), on("dnsbl_enabled")
+	s.LookalikeBrandCT, s.NRDFeedURL = on("lookalike_brand_ct"), str("nrd_feed_url")
+	s.LookalikeBrandWords = splitList(r.PostFormValue("lookalike_brand_words"), true)
 	if err := s.Normalize(); err != nil {
 		return cur, err
 	}
@@ -1573,7 +1575,7 @@ func (s *Server) settingsView(w http.ResponseWriter, r *http.Request, sess *Sess
 	}
 	s.render(w, r, sess, "settings", http.StatusOK, map[string]any{
 		"Title": "Settings", "Nav": "settings", "S": st, "HasPassword": s.eng.HasSMTPPassword(),
-		"HasShodan": s.eng.HasSecret(secretShodan), "HasCensys": s.eng.HasSecret(secretCensys), "HasVT": s.eng.HasSecret(secretVT), "HasHIBP": s.eng.HasSecret(secretHIBP), "HasGitHub": s.eng.HasSecret(secretGitHub), "HasOTX": s.eng.HasSecret(secretOTX),
+		"HasShodan": s.eng.HasSecret(secretShodan), "HasCensys": s.eng.HasSecret(secretCensys), "HasVT": s.eng.HasSecret(secretVT), "HasHIBP": s.eng.HasSecret(secretHIBP), "HasGitHub": s.eng.HasSecret(secretGitHub), "HasOTX": s.eng.HasSecret(secretOTX), "HasNRD": s.eng.HasSecret(secretNRD),
 		"Resolvers": strings.Join(st.DNSResolvers, "\n"), "Recipients": strings.Join(st.SMTPTo, "\n"),
 		"Listen": s.listenView(), "Cert": s.certView(), "Backup": s.backupView(),
 		"MCP": s.mcpView(r, st),
@@ -1653,6 +1655,7 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request, sess *Sess
 		{secretHIBP, "hibp_key", "Have I Been Pwned", next.HIBPEnabled},
 		{secretGitHub, "github_token", "GitHub", next.GitHubEnabled},
 		{secretOTX, "otx_key", "AlienVault OTX", next.OTXEnabled},
+		{secretNRD, "nrd_feed_key", "Newly registered domains feed", false}, // optional: some feeds put the token in the address
 	} {
 		val, wipe := strings.TrimSpace(r.PostFormValue(k.field)), r.PostFormValue(k.field+"_clear") == "on"
 		if val != "" && !apiKeyRe.MatchString(val) {

@@ -116,6 +116,8 @@ func (s *Scanner) lookalikes(ctx context.Context, t *Target, results map[string]
 			own[o.Domain] = true
 		}
 	}
+	// Brand watch (brandwatch.go): names containing the brand, from certificate logs and an optional feed.
+	cands = append(cands, s.brandCandidates(ctx, root, cands, own)...)
 	me := lookOwner{root: root, ns: map[string]bool{}, ips: map[string]bool{}}
 	if hr := results[root]; hr != nil {
 		for _, n := range hr.Records["NS"] {

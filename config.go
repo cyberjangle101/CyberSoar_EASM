@@ -220,13 +220,18 @@ type DiscoverCfg struct {
 	Related      bool // suggest other domains that share certificates with the target
 	ReverseIP    bool // suggest other domains hosted on the same addresses (HackerTarget)
 
+	BrandCT    bool     // brand watch: certificates for names containing a brand word (brandwatch.go)
+	BrandWords []string // brand words besides the target's own name
+	NRDFeedURL string   // brand watch: a newly registered domains feed ("" = none)
+	NRDFeedKey string   // sent as X-API-Key with the feed request ("" = none)
+
 	LookalikeProbe      bool // visit look-alike web sites (EASM-BRAND-004)
 	DependencyConfusion bool // package names from your sites against npm and PyPI (EASM-BRAND-006)
 	DNSBL               bool // your addresses on spam blocklists (EASM-MAIL-018)
 }
 
 // Secrets holds decrypted credentials for one scan.
-type Secrets struct{ SMTP, Shodan, Censys, VirusTotal, HIBP, GitHub, OTX string }
+type Secrets struct{ SMTP, Shodan, Censys, VirusTotal, HIBP, GitHub, OTX, NRDFeed string }
 
 const (
 	secretSMTP   = "secret:smtp_password"
@@ -236,6 +241,7 @@ const (
 	secretHIBP   = "secret:hibp_key"     //nolint:gosec // G101: the NAME of a stored secret, not a credential
 	secretGitHub = "secret:github_token" //nolint:gosec // G101: the NAME of a stored secret, not a credential
 	secretOTX    = "secret:otx_key"
+	secretNRD    = "secret:nrd_feed_key" //nolint:gosec // G101: the NAME of a stored secret, not a credential
 )
 
 // CrtShCfg configures the crt.sh certificate-transparency source, including its retry/backoff behaviour.

@@ -158,7 +158,7 @@ var ruleIndex = map[string]ruleMeta{
 
 	// Threat intelligence: outside your own attack surface, so off unless switched on in Settings
 	"lookalike-domain": {"EASM-BRAND-001", "Threat intelligence (off by default)", modeOSINT, "Medium when it accepts email (MX), otherwise Low",
-		"A variation of the domain (see look-alike techniques) is registered by someone else and accepts email or has a web address. Left out: names on the domain's own name servers, or whose name servers or mail servers are under the domain, or that point at its own web server; names served by parking or resale services; and names with neither mail nor web."},
+		"A variation of the domain (see look-alike techniques), or a domain that contains a brand word or is one letter from a long one (brand watch: certificates issued in the last 30 days, from crt.sh, and an optional newly registered domains feed), is registered by someone else and accepts email or has a web address. Left out: names on the domain's own name servers, or whose name servers or mail servers are under the domain, or that point at its own web server; names served by parking or resale services; and names with neither mail nor web."},
 	"phishing-clone": {"EASM-BRAND-004", "Threat intelligence (off by default)", "Active: visits look-alike sites (separate switch, off by default)", "High when the look-alike serves the same favicon (Shodan's MurmurHash3 hash) or a password field on a page with your title or name, Medium when only the page title matches",
 		"For each reported look-alike with a web address: its home page and /favicon.ico (HTTPS, then HTTP) are compared with those of the domain or www."},
 	"lookalike-tls-issued": {"EASM-BRAND-005", "Threat intelligence (off by default)", modeOSINT, "High (every reported look-alike accepts email or has a web address, see EASM-BRAND-001)",
@@ -194,6 +194,8 @@ var dataSources = []dataSource{
 	{"RIPEstat", "IP to network owner (fallback)", "None", "IP addresses", "On", "DNS-003"},
 	{"Cloud and CDN IP ranges (AWS, Google Cloud, Cloudflare, Fastly, Oracle Cloud, GitHub)", "Reference download", "None", "Nothing (plain downloads)", "On", "EXP-001 skips CDN edges; findings name the hosting provider"},
 	{"RDAP (rdap.org)", "Registration data", "None", "The domain name", "On", "DNS-006"},
+	{"crt.sh brand watch", "Look-alikes: certificates for new domains containing a brand word", "None", "The brand words (each domain's own name, plus any configured)", "On when the look-alike check is on", "BRAND-001, BRAND-005"},
+	{"Newly registered domains feed", "Look-alikes: a daily list of new domains", "Your own licensed feed (optional key)", "Nothing (the list is downloaded and matched locally)", "Off until an address is saved", "BRAND-001, BRAND-005"},
 	{"Shodan InternetDB", "Exposure intelligence", "None", "IP addresses", "On", "EXP-001...004"},
 	{"Shodan API", "Exposure intelligence", "Shodan key", "IP addresses", "Off until a key is saved", "EXP-001...004"},
 	{"Censys", "Exposure intelligence", "Personal access token", "IP addresses", "Off until a token is saved", "EXP-001 (an independent second source)"},

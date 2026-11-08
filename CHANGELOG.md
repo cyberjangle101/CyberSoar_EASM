@@ -4,7 +4,9 @@ What changed in each release of CyberSoar EASM (called EASM Agent before 1.9.19)
 
 ## 1.9
 
-**Unreleased (AI assistant set-up that works with any MCP client, network requirements):**
+**Unreleased (AI assistant set-up that works with any MCP client, network requirements, brand watch):**
+
+* **Brand watch for look-alikes.** The look-alike check now also finds domains that contain your name or are one letter from it, such as `acme-login-secure.com`, which no list of typos would guess. Once a scan it searches certificate logs (crt.sh) for certificates issued in the last 30 days to such names. Most phishing sites need HTTPS, so they show up there within minutes. Each candidate then goes through the same checks as the other look-alikes: registered by someone else, not parked, and able to receive mail or serve a site. Settings → Threat intelligence adds extra brand words (product or trading names) and, optionally, a newly registered domains feed you are licensed for (plain text, gzip or zip, with an optional `X-API-Key`), downloaded about once a day and matched locally.
 
 * **Network requirements page.** [docs/NETWORK.md](docs/NETWORK.md) lists every connection the agent accepts or opens (the web/API/MCP port, DNS, each intelligence source and feed, the ports active checks connect to, SMTP, alert channels, Active Directory and updates) with its protocol, port, default and the setting that controls it, and which traffic can go through an HTTP(S) proxy. The README, KUBERNETES.md and MCP.md link to it.
 * **Fixed: the Claude Desktop snippet did not connect.** It passed the token as `${AUTH_HEADER}`, which the `mcp-remote` bridge sends as it is, so the agent refused it and the bridge failed with *"Dynamic Client Registration rejected (HTTP 404)"*. The snippet now writes the header out in full and uses `--transport http-only`.
