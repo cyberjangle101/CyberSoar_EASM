@@ -184,6 +184,7 @@ var dataSources = []dataSource{
 	{"HackerTarget", "Subdomain discovery", "None (about 50 requests/day)", "The domain name", "On", "Inventory"},
 	{"urlscan.io", "Subdomain discovery (public scans)", "None", "The domain name", "On", "Inventory"},
 	{"Wayback Machine", "Subdomain discovery (archived URLs)", "None", "The domain name", "Off (slow)", "Inventory"},
+	{"ip.thc.org", "Subdomain discovery (passive DNS, certificates, scans)", "None (up to 10 paced requests per domain)", "The domain name", "On", "Inventory"},
 	{"AlienVault OTX", "Subdomain discovery (passive DNS)", "Free key", "The domain name", "Off until a key is saved", "Inventory"},
 	{"Anubis (jonlu.ca)", "Subdomain discovery", "None", "The domain name", "Off (blocks automated clients)", "Inventory"},
 	{"Shodan DNS", "Subdomain discovery", "Shodan key (1 query credit per scan)", "The domain name", "Off", "Inventory"},

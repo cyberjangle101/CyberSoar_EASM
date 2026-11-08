@@ -1550,7 +1550,7 @@ func parseSettingsForm(r *http.Request, cur Settings) (Settings, error) {
 	s.ASNEnabled, s.ASNBGPViewFallback = on("asn_enabled"), on("asn_bgpview_fallback")
 	s.SMTPEnabled, s.SMTPInsecureSkipVerify = on("smtp_enabled"), on("smtp_insecure_skip_verify")
 	s.InternetDBEnabled, s.RDAPEnabled = on("internetdb_enabled"), on("rdap_enabled")
-	s.CertSpotterEnabled, s.URLScanEnabled, s.WaybackEnabled = on("certspotter_enabled"), on("urlscan_enabled"), on("wayback_enabled")
+	s.CertSpotterEnabled, s.URLScanEnabled, s.WaybackEnabled, s.THCEnabled = on("certspotter_enabled"), on("urlscan_enabled"), on("wayback_enabled"), on("thc_enabled")
 	s.DNSOverHTTPS, s.ISCEnabled, s.EPSSEnabled, s.KEVEnabled = on("dns_over_https"), on("isc_enabled"), on("epss_enabled"), on("kev_enabled")
 	s.TorExitEnabled, s.CloudRangesEnabled, s.TakeoverFeedEnabled = on("tor_exit_enabled"), on("cloud_ranges_enabled"), on("takeover_feed_enabled")
 	s.ShodanEnabled, s.ShodanDomainLookup = on("shodan_enabled"), on("shodan_domain_lookup")

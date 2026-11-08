@@ -110,6 +110,7 @@
       <label class="check"><input type="checkbox" name="certspotter_enabled" {{if .S.CertSpotterEnabled}}checked{{end}}> CertSpotter <span class="hint">Free, no key (100 requests an hour). A second Certificate Transparency search, so a scan is still complete when crt.sh is down.</span></label>
       <label class="check"><input type="checkbox" name="urlscan_enabled" {{if .S.URLScanEnabled}}checked{{end}}> urlscan.io <span class="hint">Free, no key. Names seen in public scans, including hosts that never had a certificate.</span></label>
       <label class="check"><input type="checkbox" name="wayback_enabled" {{if .S.WaybackEnabled}}checked{{end}}> Wayback Machine <span class="hint">Free, no key. Names in archived URLs, which surfaces forgotten hosts. Slow, and often times out for large domains.</span></label>
+      <label class="check"><input type="checkbox" name="thc_enabled" {{if .S.THCEnabled}}checked{{end}}> ip.thc.org <span class="hint">Free, no key. A large dataset of names from passive DNS, certificates and scans. Up to 10 requests per domain, two seconds apart.</span></label>
       <label>crt.sh timeout per attempt (seconds) <input name="crtsh_timeout_seconds" inputmode="numeric" value="{{.S.CrtShTimeoutSeconds}}"></label>
       <label>crt.sh attempts (with exponential backoff) <input name="crtsh_max_attempts" inputmode="numeric" value="{{.S.CrtShMaxAttempts}}"></label>
     </div>

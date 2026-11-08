@@ -4,7 +4,9 @@ What changed in each release of CyberSoar EASM (called EASM Agent before 1.9.19)
 
 ## 1.9
 
-**Unreleased (AI assistant set-up that works with any MCP client, network requirements):**
+**Unreleased (AI assistant set-up that works with any MCP client, network requirements, a new discovery source):**
+
+* **New subdomain source: ip.thc.org.** Free, no key, and on by default: a large dataset of names seen in passive DNS, certificates and scans. Each domain costs at most 10 requests, two seconds apart, to stay within the service's free limit. Switch it off under Settings → Data sources (`thc_enabled`).
 
 * **Network requirements page.** [docs/NETWORK.md](docs/NETWORK.md) lists every connection the agent accepts or opens (the web/API/MCP port, DNS, each intelligence source and feed, the ports active checks connect to, SMTP, alert channels, Active Directory and updates) with its protocol, port, default and the setting that controls it, and which traffic can go through an HTTP(S) proxy. The README, KUBERNETES.md and MCP.md link to it.
 * **Fixed: the Claude Desktop snippet did not connect.** It passed the token as `${AUTH_HEADER}`, which the `mcp-remote` bridge sends as it is, so the agent refused it and the bridge failed with *"Dynamic Client Registration rejected (HTTP 404)"*. The snippet now writes the header out in full and uses `--transport http-only`.
