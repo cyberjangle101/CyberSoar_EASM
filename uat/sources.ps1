@@ -9,7 +9,8 @@ $pw = (New-Secret 20) + '-Dd4'
 Set-Content (OutPath 'sources-credentials.txt') -Encoding ascii -Value "lab admin: uatadmin / $pw"
 function Flash([string]$html) { ([regex]::Match($html, '(?s)class="flash[^"]*"[^>]*>(.*?)</div>').Groups[1].Value -replace '<[^>]+>', '').Trim() }
 function Post($s, [string]$path, [hashtable]$extra = @{}) { $pg = Invoke-Page $s $B '/'; $f = @{ csrf = (Get-Csrf $pg.b) }; foreach ($k in $extra.Keys) { $f[$k] = $extra[$k] }; Invoke-Page $s $B $path $f }
-function Row([string]$html, [string]$needle) { foreach ($row in ($html -split '<tr')) { if ($row -match [regex]::Escape($needle)) { return $row } } }
+# Table rows only: the text before the first <tr> (filters, the Type list) is not a row.
+function Row([string]$html, [string]$needle) { foreach ($row in ($html -split '<tr' | Select-Object -Skip 1)) { if ($row -match [regex]::Escape($needle)) { return $row } } }
 function Dec([string]$s) { [Net.WebUtility]::HtmlDecode($s) }
 
 # The main Settings form, read back as a browser would submit it (inputs, ticked boxes, selects, text areas).
