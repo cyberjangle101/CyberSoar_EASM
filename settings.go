@@ -116,6 +116,11 @@ type Settings struct {
 	ScreenshotMax        int
 	ChromePath           string
 
+	// Brand watch (brandwatch.go), part of the look-alike check.
+	LookalikeBrandCT    bool     // certificates for names containing a brand word
+	LookalikeBrandWords []string // brand words besides each domain's own name
+	NRDFeedURL          string   // a newly registered domains feed the organisation is licensed for
+
 	// SMTP
 	SMTPEnabled            bool
 	SMTPHost               string
@@ -148,6 +153,7 @@ func DefaultSettings() Settings {
 		AlertRemovals:          true,
 		RemovalMisses:          3,
 		LookalikeMax:           300,
+		LookalikeBrandCT:       true, // only runs when the look-alike check is on
 		RelatedEnabled:         true,
 
 		DigestFrequency: "weekly",
@@ -232,6 +238,27 @@ func (s *Settings) Normalize() error {
 	s.ChromePath = strings.TrimSpace(s.ChromePath)
 	if len(s.ChromePath) > 500 || strings.ContainsFunc(s.ChromePath, func(r rune) bool { return r < 32 }) {
 		return errors.New("the browser path is not valid")
+	}
+	words := s.LookalikeBrandWords[:0:0]
+	for _, w := range s.LookalikeBrandWords {
+		w = strings.ToLower(strings.TrimSpace(w))
+		if w == "" {
+			continue
+		}
+		if len(w) < brandMinWord || !validLabel(w) || strings.Contains(w, "-") {
+			return fmt.Errorf("brand word %q: use letters and digits only, at least %d of them", clip(w, 40), brandMinWord)
+		}
+		words = append(words, w)
+	}
+	if len(words) > 50 {
+		return errors.New("at most 50 brand words")
+	}
+	s.LookalikeBrandWords = words
+	s.NRDFeedURL = strings.TrimSpace(s.NRDFeedURL)
+	if s.NRDFeedURL != "" {
+		if u, err := url.Parse(s.NRDFeedURL); err != nil || u.Scheme != "https" || u.Host == "" || len(s.NRDFeedURL) > 1000 {
+			return errors.New("the newly registered domains feed must be an https:// address")
+		}
 	}
 	for _, e := range checks {
 		if e != nil {
@@ -377,11 +404,15 @@ func (s Settings) RuntimeWith(sec Secrets) *Config {
 			Shots: s.Screenshots, MaxShots: s.ScreenshotMax, ChromePath: s.ChromePath, MaxHosts: s.ActiveMaxHosts,
 			Concurrency: s.ActiveConcurrency, Timeout: time.Duration(s.ActiveTimeoutSeconds) * time.Second},
 		Discover: DiscoverCfg{Lookalikes: s.LookalikeEnabled, LookalikeMax: s.LookalikeMax, Related: s.RelatedEnabled, ReverseIP: s.ReverseIPEnabled,
-			LookalikeProbe: s.LookalikeEnabled && s.LookalikeProbe, DependencyConfusion: s.DependencyConfusion, DNSBL: s.DNSBLEnabled},
+			LookalikeProbe: s.LookalikeEnabled && s.LookalikeProbe, DependencyConfusion: s.DependencyConfusion, DNSBL: s.DNSBLEnabled,
+			BrandCT: s.LookalikeEnabled && s.LookalikeBrandCT, BrandWords: s.LookalikeBrandWords},
 		RetentionDays: s.EventRetentionDays,
 		PublicURL:     s.PublicURL,
 	}
 	c.Sources.OTX.Enabled, c.Sources.OTX.Key = s.OTXEnabled && sec.OTX != "", sec.OTX
+	if s.LookalikeEnabled && s.NRDFeedURL != "" {
+		c.Discover.NRDFeedURL, c.Discover.NRDFeedKey = s.NRDFeedURL, sec.NRDFeed
+	}
 	in := &c.Intel
 	in.InternetDB, in.RDAP = s.InternetDBEnabled, s.RDAPEnabled
 	in.ISC, in.EPSS, in.KEV, in.TorExits, in.Cloud, in.Takeover = s.ISCEnabled, s.EPSSEnabled, s.KEVEnabled, s.TorExitEnabled, s.CloudRangesEnabled, s.TakeoverFeedEnabled

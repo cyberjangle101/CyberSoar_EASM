@@ -117,6 +117,8 @@ type Feeds struct {
 	tor      map[string]bool
 	takeover []TakeoverPrint
 	ranges   map[string][]cloudNet // per cloud feed
+
+	nrd nrdCache // the optional newly registered domains feed (brandwatch.go)
 }
 
 type cloudNet struct {

@@ -825,7 +825,7 @@ This is every check the EASM Agent runs against a monitored domain: the finding 
 
 * **Finding type:** `lookalike-domain`
 * **Collection:** Passive: public sources (OSINT)
-* **Triggered when:** A variation of the domain (see look-alike techniques) is registered by someone else and accepts email or has a web address. Left out: names on the domain's own name servers, or whose name servers or mail servers are under the domain, or that point at its own web server; names served by parking or resale services; and names with neither mail nor web.
+* **Triggered when:** A variation of the domain (see look-alike techniques), or a domain that contains a brand word or is one letter from a long one (brand watch: certificates issued in the last 30 days, from crt.sh, and an optional newly registered domains feed), is registered by someone else and accepts email or has a web address. Left out: names on the domain's own name servers, or whose name servers or mail servers are under the domain, or that point at its own web server; names served by parking or resale services; and names with neither mail nor web.
 * **Severity:** Medium when it accepts email (MX), otherwise Low
 * **Evidence:** DNS: a variation of your domain name (a typo, a similar-looking character, another ending) is registered by someone else and accepts email or has a web address. Parked or for-sale names and your own registrations are left out.
 * **Why it matters:** Someone has registered a name that people could mistake for yours. These are used for phishing emails, fake login pages and intercepting mail sent to a mistyped address. A domain that accepts email is the more serious case.
@@ -903,6 +903,8 @@ Every external source the agent can use, whether it needs a key, what it is sent
 | RIPEstat | IP to network owner (fallback) | None | IP addresses | On | DNS-003 |
 | Cloud and CDN IP ranges (AWS, Google Cloud, Cloudflare, Fastly, Oracle Cloud, GitHub) | Reference download | None | Nothing (plain downloads) | On | EXP-001 skips CDN edges; findings name the hosting provider |
 | RDAP (rdap.org) | Registration data | None | The domain name | On | DNS-006 |
+| crt.sh brand watch | Look-alikes: certificates for new domains containing a brand word | None | The brand words (each domain's own name, plus any configured) | On when the look-alike check is on | BRAND-001, BRAND-005 |
+| Newly registered domains feed | Look-alikes: a daily list of new domains | Your own licensed feed (optional key) | Nothing (the list is downloaded and matched locally) | Off until an address is saved | BRAND-001, BRAND-005 |
 | Shodan InternetDB | Exposure intelligence | None | IP addresses | On | EXP-001...004 |
 | Shodan API | Exposure intelligence | Shodan key | IP addresses | Off until a key is saved | EXP-001...004 |
 | Censys | Exposure intelligence | Personal access token | IP addresses | Off until a token is saved | EXP-001 (an independent second source) |
