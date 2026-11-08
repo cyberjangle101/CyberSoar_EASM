@@ -1,0 +1,235 @@
+name: Pre-release UAT
+
+# The release candidate UAT (release.yml), run on code that is not tagged yet: build from this
+# commit and test it on Windows Server 2022 and 2025 (lab UAT, upgrade from the last release,
+# real service install), on Linux (the same UAT under PowerShell 7, the race-detector test run,
+# a ZAP scan) and as a container (hardened Docker run, kind Kubernetes deployment).
+# Nothing is signed or published, and no secret is used.
+on:
+  workflow_dispatch:
+  push:
+    branches: ["test/sit-uat-*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uat-prerelease-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VERSION: 0.0.0-uat
+  PREVIOUS: v1.9.19 # the release users upgrade from
+
+jobs:
+  windows-server:
+    name: "UAT: Windows Server (${{ matrix.os }})"
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    runs-on: ${{ matrix.os }} # elevated, so the service test installs a real service
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # the previous release's tag
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          check-latest: true
+          cache: false
+
+      - name: Build this commit and the previous release from source
+        shell: pwsh
+        run: |
+          go build -trimpath -ldflags "-X main.version=$env:VERSION" -o dist\easm-agent.exe .
+          if ($LASTEXITCODE) { exit 1 }
+          git worktree add --detach "$env:RUNNER_TEMP\prev-src" $env:PREVIOUS
+          Push-Location "$env:RUNNER_TEMP\prev-src"
+          go build -trimpath -ldflags "-X main.version=$($env:PREVIOUS.TrimStart('v'))" -o "$env:GITHUB_WORKSPACE\prev\easm-agent.exe" .
+          if ($LASTEXITCODE) { exit 1 }
+          Pop-Location
+          (Get-CimInstance Win32_OperatingSystem).Caption
+          & .\dist\easm-agent.exe -version; & .\prev\easm-agent.exe -version
+
+      - name: UAT suite (lab scans, evidence, corroboration, new data sources, upgrade, Windows service)
+        shell: pwsh
+        env:
+          UAT_OUT: ${{ runner.temp }}\uat
+        run: .\uat\run.ps1 -Exe .\dist\easm-agent.exe -PreviousExe .\prev\easm-agent.exe
+
+      - name: Keep the UAT results (no credentials)
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: uat-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}\uat\*-results.csv
+            ${{ runner.temp }}\uat\lab.log
+            ${{ runner.temp }}\uat\lab.err
+          if-no-files-found: ignore
+
+  linux:
+    name: "UAT: Linux (Ubuntu)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          check-latest: true
+          cache: false
+
+      - name: Build this commit and the previous release from source
+        run: |
+          set -euo pipefail
+          CGO_ENABLED=0 go build -trimpath -ldflags "-X main.version=${VERSION}" -o dist/easm-agent .
+          git worktree add --detach "$RUNNER_TEMP/prev-src" "$PREVIOUS"
+          (cd "$RUNNER_TEMP/prev-src" && CGO_ENABLED=0 go build -trimpath -ldflags "-X main.version=${PREVIOUS#v}" -o "$GITHUB_WORKSPACE/prev/easm-agent" .)
+          grep PRETTY_NAME /etc/os-release
+          dist/easm-agent -version; prev/easm-agent -version
+
+      - name: Tests with the race detector
+        env:
+          CGO_ENABLED: "1"
+        run: go test -race -count=1 -timeout 60m ./...
+
+      - name: UAT suite under PowerShell 7 (lab scans, evidence, corroboration, new data sources, upgrade)
+        shell: pwsh
+        env:
+          UAT_OUT: ${{ runner.temp }}/uat
+        run: ./uat/run.ps1 -Exe ./dist/easm-agent -PreviousExe ./prev/easm-agent
+
+      - name: Keep the UAT results (no credentials)
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: uat-linux
+          path: |
+            ${{ runner.temp }}/uat/*-results.csv
+            ${{ runner.temp }}/uat/lab.log
+            ${{ runner.temp }}/uat/lab.err
+          if-no-files-found: ignore
+
+      - name: Start the agent on a throwaway data folder
+        run: |
+          mkdir -p "$RUNNER_TEMP/data"
+          EASM_KEY_PASSPHRASE="$(openssl rand -hex 24)" nohup dist/easm-agent \
+            -data-dir "$RUNNER_TEMP/data" -listen 127.0.0.1:8080 -plain-http -no-browser > "$RUNNER_TEMP/agent.log" 2>&1 &
+          for i in $(seq 60); do curl -sf http://127.0.0.1:8080/healthz && exit 0; sleep 1; done
+          cat "$RUNNER_TEMP/agent.log"; exit 1
+
+      - name: ZAP baseline scan (fails on any medium or high alert)
+        run: |
+          mkdir -p zap && chmod 777 zap
+          docker run --rm --network host -v "$PWD/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:2.17.0@sha256:030d3df57735dacbb83464854758e674dd9ad01d79d12a129a8e58b1fd384238 \
+            zap-baseline.py -t http://127.0.0.1:8080 -J zap.json -r zap.html -I
+          jq -r '.site[].alerts[] | "\(.riskdesc)  \(.name)"' zap/zap.json | sort -u
+          bad=$(jq '[.site[].alerts[] | select((.riskcode | tonumber) >= 2)] | length' zap/zap.json)
+          [ "$bad" -eq 0 ] || { echo "::error::ZAP found $bad medium or high alert(s)"; exit 1; }
+
+  container:
+    name: "UAT: Docker and Kubernetes"
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          check-latest: true
+          cache: false
+
+      - name: Build the image (linux/amd64) from this commit
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o dist/easm-agent-linux-amd64 .
+          docker build --platform linux/amd64 --build-arg "VERSION=${VERSION}" -t easm-agent:uat .
+          test "$(docker run --rm easm-agent:uat -version)" = "easm-agent ${VERSION}"
+          cfg=$(docker image inspect easm-agent:uat --format '{{.Config.User}} {{json .Config.Env}}')
+          echo "$cfg"
+          echo "$cfg" | grep -q '^65532:65532 ' && echo "$cfg" | grep -q 'EASM_MANAGED=1'
+
+      - name: "Docker: hardened run, first start, managed mode, graceful stop, restart"
+        run: |
+          set -euo pipefail
+          openssl rand -hex 24 > "$RUNNER_TEMP/passphrase"
+          chmod 0644 "$RUNNER_TEMP/passphrase" # the container user (65532) reads it
+          docker volume create easm-data
+          start() {
+            docker run -d --name easm --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges \
+              -e EASM_KEY_PASSPHRASE_FILE=/run/secrets/passphrase -v "$RUNNER_TEMP/passphrase:/run/secrets/passphrase:ro" \
+              -v easm-data:/data -p 127.0.0.1:8443:8443 easm-agent:uat
+          }
+          up() { for _ in $(seq 60); do curl -skf https://127.0.0.1:8443/healthz && return 0; sleep 2; done; docker logs easm; return 1; }
+          start && up
+          code=$(docker exec easm /usr/local/bin/easm-agent -show-setup-code -data-dir /data/easm)
+          [[ "$code" =~ ^[A-Z0-9]{5}(-[A-Z0-9]{5}){3}$ ]] || { echo "setup code has the wrong shape"; exit 1; }
+          curl -skf https://127.0.0.1:8443/setup | grep -q 'name="code"'
+          if docker exec easm /usr/local/bin/easm-agent -update -yes -data-dir /data/easm 2> "$RUNNER_TEMP/update.err"; then
+            echo "managed mode did not refuse a self-update"; exit 1
+          fi
+          grep -q "managed by its container image" "$RUNNER_TEMP/update.err"
+          t0=$(date +%s); docker stop -t 30 easm; took=$(( $(date +%s) - t0 ))
+          rc=$(docker inspect easm --format '{{.State.ExitCode}}')
+          echo "stopped in ${took}s with exit code $rc"
+          [ "$rc" = "0" ] && [ "$took" -lt 25 ] || { echo "SIGTERM was not handled gracefully"; exit 1; }
+          docker rm easm
+          start && up # a restart unlocks the existing key from the passphrase file
+          docker logs easm 2>&1 | grep -q "agent started"
+          docker rm -f easm
+
+      - name: Install kind (checksum-verified release)
+        env:
+          KIND_VERSION: v0.33.0
+          KIND_SHA256: aee6151561422756b764a4ae28e7f44cda5af5a9eead3cc9985112b1de8d8e0d
+        run: |
+          curl -sSfL --retry 4 --retry-all-errors -o "$RUNNER_TEMP/kind" "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-linux-amd64"
+          echo "${KIND_SHA256}  $RUNNER_TEMP/kind" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/kind"
+
+      - name: "Kubernetes: deploy deploy/kubernetes to a kind cluster and use it"
+        env:
+          NODE_IMAGE: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/kind" create cluster --name easm --image "$NODE_IMAGE" --wait 180s
+          docker save -o "$RUNNER_TEMP/easm-agent.tar" easm-agent:uat
+          "$RUNNER_TEMP/kind" load image-archive "$RUNNER_TEMP/easm-agent.tar" --name easm
+          kubectl create namespace easm
+          kubectl -n easm create secret generic easm-key-passphrase --from-file=passphrase="$RUNNER_TEMP/passphrase"
+          # The manifests exactly as shipped, with only the image swapped for the one under test.
+          kubectl kustomize deploy/kubernetes | sed -E 's#image: ghcr.io/[^ ]+/easm-agent[:@][^ ]+#image: easm-agent:uat#' > "$RUNNER_TEMP/easm.yaml"
+          grep -q 'image: easm-agent:uat' "$RUNNER_TEMP/easm.yaml"
+          kubectl apply -f "$RUNNER_TEMP/easm.yaml"
+          kubectl -n easm rollout status statefulset/easm-agent --timeout=300s
+          code=$(kubectl -n easm exec easm-agent-0 -- /usr/local/bin/easm-agent -show-setup-code -data-dir /data/easm)
+          [[ "$code" =~ ^[A-Z0-9]{5}(-[A-Z0-9]{5}){3}$ ]] || { echo "setup code has the wrong shape"; exit 1; }
+          kubectl -n easm port-forward svc/easm-agent 18080:80 > /dev/null & pf=$!
+          for _ in $(seq 30); do curl -sf http://127.0.0.1:18080/healthz && break; sleep 1; done
+          curl -sf http://127.0.0.1:18080/setup | grep -q 'name="code"'
+          kill "$pf"
+          test "$(kubectl get ns easm -o jsonpath='{.metadata.labels.pod-security\.kubernetes\.io/enforce}')" = restricted
+          kubectl -n easm delete pod easm-agent-0 --wait=true
+          kubectl -n easm wait --for=condition=Ready pod/easm-agent-0 --timeout=300s
+          kubectl -n easm logs easm-agent-0 | grep -q '"msg":"agent started"'
+
+      - name: Diagnostics
+        if: failure()
+        run: |
+          docker logs easm 2>&1 | tail -n 50 || true
+          kubectl -n easm describe statefulset,pod 2>/dev/null | tail -n 80 || true
+          kubectl -n easm logs easm-agent-0 --tail=80 2>/dev/null || true
+          kubectl -n easm get events --sort-by=.lastTimestamp 2>/dev/null | tail -n 30 || true

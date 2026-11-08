@@ -19,10 +19,16 @@ $labExe = Join-Path $out 'lab.test.exe'
 Push-Location $repo
 try { & go test -c -o $labExe . ; if ($LASTEXITCODE) { throw 'building the lab failed' } } finally { Pop-Location }
 
+# The same suite runs on Linux under PowerShell 7 (pwsh), without the Windows service test.
+$onWindows = -not ($IsLinux -or $IsMacOS)
+$hidden = if ($onWindows) { @{ WindowStyle = 'Hidden' } } else { @{} }
+$shell = if ($onWindows) { 'powershell' } else { 'pwsh' } # Windows PowerShell 5.1 is what Windows users have
+if (-not $onWindows) { $SkipService = $true }
+
 function Start-Lab {
     Remove-Item (Join-Path $env:EASM_LAB_DIR 'lab.*') -ErrorAction SilentlyContinue
     $env:EASM_LAB = '1'
-    $p = Start-Process -FilePath $labExe -ArgumentList '-test.run', '^TestLab$', '-test.timeout', '60m' -WorkingDirectory $repo -PassThru -WindowStyle Hidden `
+    $p = Start-Process -FilePath $labExe -ArgumentList '-test.run', '^TestLab$', '-test.timeout', '60m' -WorkingDirectory $repo -PassThru @hidden `
         -RedirectStandardOutput (Join-Path $out 'lab.log') -RedirectStandardError (Join-Path $out 'lab.err')
     Remove-Item Env:EASM_LAB
     for ($i = 0; $i -lt 120; $i++) { if (Test-Path (Join-Path $env:EASM_LAB_DIR 'lab.ready')) { return $p }; if ($p.HasExited) { break }; Start-Sleep 1 }
@@ -34,12 +40,13 @@ function Stop-Lab($p) {
 }
 function Step([string]$Script, [string[]]$ScriptArgs = @()) {
     Write-Host "== $Script"
-    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot $Script) @ScriptArgs | Out-Host
+    & $shell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot $Script) @ScriptArgs | Out-Host
 }
 
-$expected = @('scan', 'evidence', 'trust')
+$expected = @('scan', 'evidence', 'trust', 'sources')
 $lab = Start-Lab; try { Step 'scan.ps1' } finally { Stop-Lab $lab }
 $lab = Start-Lab; try { Step 'evidence.ps1'; Step 'trust.ps1' } finally { Stop-Lab $lab }
+$lab = Start-Lab; try { Step 'sources.ps1' } finally { Stop-Lab $lab }
 if ($PreviousExe) { $expected += 'upgrade'; Step 'upgrade.ps1' @('-OldExe', (Resolve-Path $PreviousExe).Path, '-NewExe', $Exe) }
 if (-not $SkipService) { $expected += 'service'; Step 'service.ps1' @('-Exe', $Exe) }
 

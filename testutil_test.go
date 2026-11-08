@@ -166,6 +166,8 @@ type fakeSources struct {
 	anubis    []string
 	serial    int
 	crtDelay  map[string]time.Duration // per root: how long crt.sh takes to answer
+	thc       []string                 // names ip.thc.org knows
+	archived  [][2]string              // Wayback captures: original URL, timestamp
 }
 
 func newFakeSources(t testing.TB) *fakeSources {
@@ -232,13 +234,62 @@ func newFakeSources(t testing.TB) *fakeSources {
 		}
 		_ = json.NewEncoder(w).Encode(out)
 	})
+	mux.HandleFunc("POST /thc/", func(w http.ResponseWriter, r *http.Request) {
+		var req thcRequest
+		if json.NewDecoder(r.Body).Decode(&req) != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		type e struct {
+			Domain string `json:"domain"`
+		}
+		list := []e{}
+		for _, h := range f.thc {
+			if strings.HasSuffix(h, "."+req.Domain) {
+				list = append(list, e{h})
+			}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"domains": list, "next_page_state": ""})
+	})
+	mux.HandleFunc("/wayback/", func(w http.ResponseWriter, r *http.Request) { // CDX: the archive check asks with matchType=domain
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		q := r.URL.Query()
+		root := strings.TrimSuffix(strings.TrimPrefix(q.Get("url"), "*."), "/*")
+		rows := [][]string{{"original", "timestamp"}}
+		for _, a := range f.archived {
+			if u, err := url.Parse(a[0]); err == nil && (u.Hostname() == root || strings.HasSuffix(u.Hostname(), "."+root)) {
+				rows = append(rows, []string{a[0], a[1]})
+			}
+		}
+		if q.Get("matchType") != "domain" { // the subdomain source asks for the original URL only
+			for i := range rows {
+				rows[i] = rows[i][:1]
+			}
+		}
+		_ = json.NewEncoder(w).Encode(rows)
+	})
 	f.srv = httptest.NewServer(mux)
 	t.Cleanup(f.srv.Close)
 	return f
 }
 
 func (f *fakeSources) urls() sourceURLs {
-	return sourceURLs{crtsh: f.srv.URL + "/crtsh/", hackertarget: f.srv.URL + "/ht/", otx: f.srv.URL + "/otx/", anubis: f.srv.URL + "/anubis/"}
+	return sourceURLs{crtsh: f.srv.URL + "/crtsh/", hackertarget: f.srv.URL + "/ht/", otx: f.srv.URL + "/otx/", anubis: f.srv.URL + "/anubis/",
+		thc: f.srv.URL + "/thc/", wayback: f.srv.URL + "/wayback/"}
+}
+
+func (f *fakeSources) addTHC(h ...string) { f.mu.Lock(); f.thc = append(f.thc, h...); f.mu.Unlock() }
+
+// addArchived adds Wayback captures (original URLs, captured 2025-06-01).
+func (f *fakeSources) addArchived(u ...string) {
+	f.mu.Lock()
+	for _, x := range u {
+		f.archived = append(f.archived, [2]string{x, "20250601000000"})
+	}
+	f.mu.Unlock()
 }
 
 func (f *fakeSources) addCert(names ...string) {
