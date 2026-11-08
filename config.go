@@ -223,6 +223,7 @@ type DiscoverCfg struct {
 	LookalikeProbe      bool // visit look-alike web sites (EASM-BRAND-004)
 	DependencyConfusion bool // package names from your sites against npm and PyPI (EASM-BRAND-006)
 	DNSBL               bool // your addresses on spam blocklists (EASM-MAIL-018)
+	ArchiveExposure     bool // files from your hosts kept by the Wayback Machine (EASM-WEB-013)
 }
 
 // Secrets holds decrypted credentials for one scan.

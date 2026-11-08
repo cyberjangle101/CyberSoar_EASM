@@ -115,6 +115,8 @@ type Settings struct {
 	ScreenshotMax        int
 	ChromePath           string
 
+	ArchiveExposureEnabled bool // files from your hosts kept by the Wayback Machine (passive; off by default)
+
 	// SMTP
 	SMTPEnabled            bool
 	SMTPHost               string
@@ -374,7 +376,7 @@ func (s Settings) RuntimeWith(sec Secrets) *Config {
 			Shots: s.Screenshots, MaxShots: s.ScreenshotMax, ChromePath: s.ChromePath, MaxHosts: s.ActiveMaxHosts,
 			Concurrency: s.ActiveConcurrency, Timeout: time.Duration(s.ActiveTimeoutSeconds) * time.Second},
 		Discover: DiscoverCfg{Lookalikes: s.LookalikeEnabled, LookalikeMax: s.LookalikeMax, Related: s.RelatedEnabled, ReverseIP: s.ReverseIPEnabled,
-			LookalikeProbe: s.LookalikeEnabled && s.LookalikeProbe, DependencyConfusion: s.DependencyConfusion, DNSBL: s.DNSBLEnabled},
+			LookalikeProbe: s.LookalikeEnabled && s.LookalikeProbe, DependencyConfusion: s.DependencyConfusion, DNSBL: s.DNSBLEnabled, ArchiveExposure: s.ArchiveExposureEnabled},
 		RetentionDays: s.EventRetentionDays,
 		PublicURL:     s.PublicURL,
 	}

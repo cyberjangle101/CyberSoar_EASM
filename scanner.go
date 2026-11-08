@@ -569,7 +569,7 @@ func (s *Scanner) scanTarget(ctx context.Context, t *Target) error {
 			if hr := results[f.Host]; !reliable && act != nil && act.enabled && hr != nil && hr.NX && len(hr.Failed) == 0 {
 				reliable = true // the host no longer exists, so what was wrong with it is gone too
 			}
-		case "lookalike-domain", "leaked-credentials", "repo-exposure", "phishing-clone", "lookalike-tls-issued":
+		case "lookalike-domain", "leaked-credentials", "repo-exposure", "phishing-clone", "lookalike-tls-issued", "archived-exposure":
 			reliable = ext.reliableFor(f.Kind, f.Key)
 		default:
 			if hr := results[f.Host]; hr != nil {

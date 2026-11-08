@@ -106,7 +106,7 @@ var schemaStmts = []string{
 
 var findingKinds = map[string]bool{"tls-expired": true, "tls-expiring": true, "tls-hostname": true, "tls-untrusted": true, "tls-legacy": true,
 	"default-page": true, "exposed-path": true, "no-https-redirect": true, "bucket-public": true, "bucket-takeover": true, "dangling-cname": true, "asn-unexpected": true, "private-ip": true, "email-auth": true,
-	"lookalike-domain": true, "leaked-credentials": true, "repo-exposure": true, "cloud-datastore": true,
+	"lookalike-domain": true, "leaked-credentials": true, "repo-exposure": true, "archived-exposure": true, "cloud-datastore": true,
 	"exposed-service": true, "known-vuln": true, "ip-flagged": true, "eol-software": true, "domain-expiry": true,
 	"dangling-ns": true, "dangling-mx": true, "domain-unlocked": true, "dns-wildcard": true, "ct-unauthorized-ca": true, "shadow-it-ct-subdomain": true,
 	"directory-listing": true, "exposed-api-schema": true, "cors-credential-leak": true, "debug-mode-enabled": true, "second-order-script-takeover": true,

@@ -59,6 +59,12 @@ var findingCatalog = map[string]FindingInfo{
 		Risk:     "Email addresses at your domain were exposed in a breach of another service. If people reused that password for work accounts, attackers can sign in as them.",
 		Solution: "Open your Have I Been Pwned domain dashboard to see which accounts are affected. Force a password reset for them, make sure two-factor sign-in is on, and remind staff not to reuse work passwords. Accept the risk once this has been done.",
 	},
+	"archived-exposure": {
+		Title:    "Files that should not be public were archived from your site",
+		Source:   "Wayback Machine (web.archive.org)",
+		Risk:     "The public web archive kept copies of files from your hosts that often hold secrets or personal data: configuration and .env files, database dumps, backups, logs, admin pages, spreadsheets or documents. Anyone can download the archived copy, even after the file was removed from your site, and attackers search the archive for exactly these.",
+		Solution: "Open each archived copy and see what it held. If it contains passwords, keys or tokens, change them. If it is still on your site, remove it or protect it. To have copies taken out of the archive, ask the Internet Archive (info@archive.org) as the site owner. Accept the risk for files that are meant to be public, such as published reports.",
+	},
 	"repo-exposure": {
 		Title:    "Public code mentions your domain next to secret-like words",
 		Source:   "GitHub code search",

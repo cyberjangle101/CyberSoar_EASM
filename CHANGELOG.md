@@ -4,7 +4,9 @@ What changed in each release of CyberSoar EASM (called EASM Agent before 1.9.19)
 
 ## 1.9
 
-**Unreleased (AI assistant set-up that works with any MCP client, network requirements):**
+**Unreleased (AI assistant set-up that works with any MCP client, network requirements, archived files):**
+
+* **New check: files that should not be public, from the web archive (EASM-WEB-013).** With Settings → Exposure intelligence → *Archived files* on (off by default), each scan asks the Wayback Machine once per domain for archived `.env` and other configuration or secrets files, database dumps and backups, logs, admin or diagnostic pages (phpMyAdmin, server-status, Spring actuator), compressed archives, spreadsheets and documents from your hosts. These are the "filetype:" and "inurl:" searches attackers run, without a search engine, whose APIs are closing or forbid automated use. You get one finding per host and kind, quoting the newest five URLs with links to the archived copies. Nothing is sent to your own servers. The finding closes when the archive no longer holds such files.
 
 * **Network requirements page.** [docs/NETWORK.md](docs/NETWORK.md) lists every connection the agent accepts or opens (the web/API/MCP port, DNS, each intelligence source and feed, the ports active checks connect to, SMTP, alert channels, Active Directory and updates) with its protocol, port, default and the setting that controls it, and which traffic can go through an HTTP(S) proxy. The README, KUBERNETES.md and MCP.md link to it.
 * **Fixed: the Claude Desktop snippet did not connect.** It passed the token as `${AUTH_HEADER}`, which the `mcp-remote` bridge sends as it is, so the agent refused it and the bridge failed with *"Dynamic Client Registration rejected (HTTP 404)"*. The snippet now writes the header out in full and uses `--transport http-only`.
