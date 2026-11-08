@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // certView describes the web server's certificate for the Settings page.
@@ -59,7 +61,7 @@ func (s *Server) certDownload(w http.ResponseWriter, r *http.Request, _ *Session
 	}
 	w.Header().Set("Content-Type", "application/x-pem-file")
 	w.Header().Set("Content-Disposition", `attachment; filename="easm-agent.crt"`)
-	_, _ = w.Write(p)
+	http.ServeContent(w, r, "easm-agent.crt", time.Time{}, bytes.NewReader(p))
 }
 
 // certRemove goes back to the automatic self-signed certificate.
