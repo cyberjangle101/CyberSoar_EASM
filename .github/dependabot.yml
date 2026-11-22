@@ -7,6 +7,12 @@ updates:
     # Wait a week before proposing a newly published version, so a hijacked or broken release is caught first.
     cooldown:
       default-days: 7
+    # Every github/codeql-action step (init, autobuild, analyze, upload-sarif) must run the same
+    # version, or the CodeQL check fails; update them together in one PR.
+    groups:
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
   - package-ecosystem: "docker" # the distroless base image digest in the Dockerfile
     directory: "/"
     schedule:
